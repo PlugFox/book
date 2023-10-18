@@ -125,13 +125,25 @@ final class EpubMetadataExtractor {
   static void _addManifest(EpubMetadata metadata, xml.XmlElement packageNode) {
     final elements =
         _elementsExtractor(packageNode, 'manifest', _kOpfNamespace);
-    String? id, media, href, properties;
+    String? id, media, href;
     for (final e in elements) {
       if (e.name.local.trim().toLowerCase() != 'item') continue;
-      id = e.getAttribute('id')?.trim().toLowerCase();
-      media = e.getAttribute('media-type')?.trim().toLowerCase();
-      href = e.getAttribute('href');
-      properties = e.getAttribute('properties')?.trim().toLowerCase();
+      Map<String, Object?>? meta;
+      for (final attr in e.attributes) {
+        switch (attr.name.local.trim().toLowerCase()) {
+          case 'id':
+            id = attr.value.trim().toLowerCase();
+          case 'media-type':
+            media = attr.value.trim().toLowerCase();
+          case 'href':
+            href = attr.value;
+          default:
+            meta = <String, Object?>{
+              for (final attr in e.attributes)
+                attr.name.local.trim().toLowerCase(): attr.value,
+            };
+        }
+      }
       if (id == null ||
           id.isEmpty ||
           media == null ||
@@ -140,12 +152,14 @@ final class EpubMetadataExtractor {
           href.isEmpty) {
         continue;
       }
-      metadata.epubManifest.items.add(EpubManifest$Item(
-        id: id,
-        media: media,
-        href: href,
-        properties: properties,
-      ));
+      metadata.epubManifest.items.add(
+        EpubManifest$Item(
+          id: id,
+          media: media,
+          href: href,
+          meta: meta,
+        ),
+      );
     }
   }
 
@@ -179,9 +193,12 @@ final class EpubMetadataExtractor {
   }
 
   static Iterable<xml.XmlElement> _elementsExtractor(
-          xml.XmlElement packageNode, String root, [String? namespace]) =>
+    xml.XmlElement packageNode,
+    String root, [
+    String? namespace,
+  ]) =>
       packageNode
-          .findElements('metadata', namespace: _kOpfNamespace)
+          .findElements(root, namespace: _kOpfNamespace)
           .whereType<xml.XmlElement>()
           .expand((elem) => elem.children)
           .whereType<xml.XmlElement>();

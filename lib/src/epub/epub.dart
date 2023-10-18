@@ -170,7 +170,7 @@ final class EpubManifest$Item {
     required this.id,
     required this.media,
     required this.href,
-    this.properties,
+    this.meta,
   });
 
   /// {@nodoc}
@@ -179,21 +179,25 @@ final class EpubManifest$Item {
         id: json['id']?.toString() ?? '',
         media: json['media']?.toString() ?? '',
         href: json['href']?.toString() ?? '',
-        properties: json['properties']?.toString(),
+        meta: switch (json['meta']) {
+          Map<String, Object?> meta => meta,
+          _ => null,
+        },
       );
 
   /// {@nodoc}
   final String id, media, href;
 
+  /// Additional metadata for this value.
   /// {@nodoc}
-  final String? properties;
+  final Map<String, Object?>? meta;
 
   /// {@nodoc}
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id,
         'media': media,
         'href': href,
-        if (properties != null) 'properties': properties,
+        if (meta != null) 'meta': meta,
       };
 
   @override
