@@ -1,0 +1,52 @@
+name: book
+description: Book library
+
+version: 0.0.1-pre.0
+
+homepage: https://github.com/PlugFox/book
+
+repository: https://github.com/PlugFox/book
+
+issue_tracker: https://github.com/PlugFox/book/issues
+
+funding:
+  - https://www.buymeacoffee.com/plugfox
+  - https://www.patreon.com/plugfox
+  - https://boosty.to/plugfox
+
+topics:
+  - book
+  - epub
+  - reader
+  - parser
+  - package
+
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
+
+#screenshots:
+#  - description: '...'
+#    path: example.png
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  # Annotations
+  meta: ^1.11.0
+
+  # Utilities
+  crypto: ^3.0.3
+  xml: ^6.4.2
+  archive: ^3.4.6
+  collection: ^1.18.0
+  path: ^1.8.3
+
+dev_dependencies:
+  lints: ^2.0.0
+  test: ^1.24.2

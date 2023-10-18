@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // https://pub.dev/packages/test
+    // dart test test/ws_test.dart --color --platform=vm
+    {
+      "name": "Test (VM)",
+      "request": "launch",
+      "type": "dart",
+      "program": "test/book_test.dart",
+      "env": {
+        "ENVIRONMENT": "test"
+      },
+      "console": "debugConsole",
+      "runTestsOnDevice": false,
+      "templateFor": "test",
+      "toolArgs": [
+        "--color",
+        "--debug",
+        "--coverage=.coverage",
+        "--reporter=expanded",
+        "--platform=vm", // chrome
+        "--file-reporter=json:.coverage/tests.json",
+        "--timeout=30s",
+        "--concurrency=12"
+        /* "--name=handles failed connection attempts" */
+      ],
+      "args": []
+    },
+    {
+      "name": "Example",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "cwd": "${workspaceFolder}/example",
+      "program": "bin/main.dart",
+      "env": {
+        "ENVIRONMENT": "local"
+      },
+      "console": "debugConsole",
+      "runTestsOnDevice": false,
+      "toolArgs": [],
+      "args": [ /* "--dart-define-from-file=config/local.json" */]
+    },
+  ]
+}
