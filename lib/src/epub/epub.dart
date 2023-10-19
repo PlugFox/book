@@ -107,12 +107,17 @@ final class EpubMetadata extends BookMetadata {
   /// {@nodoc}
   EpubSpine epubSpine = EpubSpine();
 
+  /// Epub navigation
+  /// {@nodoc}
+  EpubNavigation epubNavigation = EpubNavigation();
+
   @override
   Map<String, Object?> toJson() => <String, Object?>{
         '@type': 'epub',
         '@version': epubVersion,
         '@manifest': epubManifest.toJson(),
         '@spine': epubSpine.toJson(),
+        '@navigation': epubNavigation.toJson(),
         if (title.isNotEmpty) 'title': title,
         if (creator.isNotEmpty) 'creator': creator,
         if (contributor.isNotEmpty) 'contributor': contributor,
@@ -170,8 +175,8 @@ final class EpubManifest$Item {
     required this.id,
     required this.media,
     required this.href,
-    this.meta,
-  });
+    Map<String, Object?>? meta,
+  }) : meta = meta ?? <String, Object?>{};
 
   /// {@nodoc}
   factory EpubManifest$Item.fromJson(Map<String, Object?> json) =>
@@ -190,14 +195,14 @@ final class EpubManifest$Item {
 
   /// Additional metadata for this value.
   /// {@nodoc}
-  final Map<String, Object?>? meta;
+  final Map<String, Object?> meta;
 
   /// {@nodoc}
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id,
         'media': media,
         'href': href,
-        if (meta != null) 'meta': meta,
+        if (meta.isNotEmpty) 'meta': meta,
       };
 
   @override
@@ -279,4 +284,113 @@ final class EpubSpine$Item {
 
   @override
   String toString() => idref;
+}
+
+/// {@nodoc}
+@internal
+final class EpubNavigation {
+  /// {@nodoc}
+  EpubNavigation({
+    List<EpubNavigation$Point>? points,
+    Map<String, Object?>? meta,
+  })  : points = points ?? <EpubNavigation$Point>[],
+        meta = meta ?? <String, Object?>{};
+
+  /// {@nodoc}
+  factory EpubNavigation.fromJson(Map<String, Object?> json) => EpubNavigation(
+        points: switch (json['points']) {
+          List<Object?> points => <EpubNavigation$Point>[
+              for (final point in points.whereType<Map<String, Object?>>())
+                EpubNavigation$Point.fromJson(point)
+            ],
+          _ => <EpubNavigation$Point>[],
+        },
+        meta: switch (json['meta']) {
+          Map<String, Object?> meta => meta,
+          _ => null,
+        },
+      );
+
+  /// {@nodoc}
+  final List<EpubNavigation$Point> points;
+
+  /// Additional metadata for this value.
+  /// {@nodoc}
+  final Map<String, Object?> meta;
+
+  /// {@nodoc}
+  Map<String, Object?> toJson() => <String, Object?>{
+        'points': points,
+        if (meta.isNotEmpty) 'meta': meta,
+      };
+}
+
+/// {@nodoc}
+@internal
+final class EpubNavigation$Point {
+  /// {@nodoc}
+  EpubNavigation$Point({
+    required this.id,
+    required this.src,
+    required this.label,
+    required this.playorder,
+    this.children,
+    Map<String, Object?>? meta,
+  }) : meta = meta ?? <String, Object?>{};
+
+  /// {@nodoc}
+  factory EpubNavigation$Point.fromJson(Map<String, Object?> json) =>
+      EpubNavigation$Point(
+        id: json['id']?.toString() ?? '',
+        src: json['src']?.toString() ?? '',
+        label: json['label']?.toString() ?? '',
+        playorder: switch (json['playorder']) {
+          int playorder => playorder,
+          String playorder => int.tryParse(playorder) ?? -1,
+          _ => -1,
+        },
+        children: switch (json['children']) {
+          List<Object?> children => <EpubNavigation$Point>[
+              for (final child in children.whereType<Map<String, Object?>>())
+                EpubNavigation$Point.fromJson(child)
+            ],
+          _ => null,
+        },
+        meta: switch (json['meta']) {
+          Map<String, Object?> meta => meta,
+          _ => null,
+        },
+      );
+
+  /// {@nodoc}
+  final String id;
+
+  /// {@nodoc}
+  final String src;
+
+  /// {@nodoc}
+  final String label;
+
+  /// {@nodoc}
+  final int playorder;
+
+  /// {@nodoc}
+  final List<EpubNavigation$Point>? children;
+
+  /// Additional metadata for this value.
+  /// {@nodoc}
+  final Map<String, Object?> meta;
+
+  /// {@nodoc}
+  Map<String, Object?> toJson() => <String, Object?>{
+        'id': id,
+        'src': src,
+        'label': label,
+        'playorder': playorder,
+        if (children != null) 'children': children,
+        if (meta.isNotEmpty) 'meta': meta,
+      };
+
+  @override
+  String toString() => label;
 }

@@ -53,6 +53,10 @@ final class EpubMetadataJsonConverter
       ..epubSpine = switch (input['@spine']) {
         Map<String, Object?> json => EpubSpine.fromJson(json),
         _ => EpubSpine(),
+      }
+      ..epubNavigation = switch (input['@navigation']) {
+        Map<String, Object?> json => EpubNavigation.fromJson(json),
+        _ => EpubNavigation(),
       };
     return metadata;
   }

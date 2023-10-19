@@ -4,7 +4,9 @@ import 'package:archive/archive.dart' as zip;
 import 'package:book/src/book.dart';
 import 'package:book/src/epub/epub.dart';
 import 'package:book/src/exception.dart';
+import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
 /// {@nodoc}
@@ -15,6 +17,7 @@ final class EpubMetadataExtractor {
 
   /// {@nodoc}
   static const String _kOpfNamespace = 'http://www.idpf.org/2007/opf';
+  static const String _kNcxNamespace = 'http://www.daisy.org/z3986/2005/ncx/';
 
   /// {@nodoc}
   EpubMetadata call({required zip.Archive archive, required String rootFile}) {
@@ -24,6 +27,9 @@ final class EpubMetadataExtractor {
     _addMetadata(metadata, packageNode);
     _addManifest(metadata, packageNode);
     _addSpine(metadata, packageNode);
+    final rootDir = p.dirname(rootFile);
+    _addNavigation(metadata, archive, rootDir);
+    // TODO(plugfox): navigation
     return metadata;
   }
 
@@ -202,4 +208,108 @@ final class EpubMetadataExtractor {
           .whereType<xml.XmlElement>()
           .expand((elem) => elem.children)
           .whereType<xml.XmlElement>();
+
+  static void _addNavigation(
+      EpubMetadata metadata, zip.Archive archive, String rootDir) {
+    final methods = <bool Function(EpubMetadata, zip.Archive, String)>[
+      _addNavigationNavFile, // EPUB 2.0
+      _addNavigationXHTML, // EPUB 3.0
+      _addNavigationFallback, // Fallback
+    ];
+    for (var i = 0;
+        i < methods.length && !methods[i](metadata, archive, rootDir);
+        i++) {}
+  }
+
+  static bool _addNavigationNavFile(
+      EpubMetadata metadata, zip.Archive archive, String rootDir) {
+    if (metadata.epubSpine.tableOfContents == null) return false;
+    var navFile = metadata.epubManifest.items
+        .firstWhereOrNull(
+            (item) => item.id == metadata.epubSpine.tableOfContents)
+        ?.href;
+    if (navFile == null) return false;
+    navFile = '$rootDir/$navFile'.toLowerCase();
+    final navFileContent = archive.files
+        .firstWhereOrNull(
+          (file) => file.name.toLowerCase() == navFile,
+        )
+        ?.content;
+    if (navFileContent is! List<int>) return false;
+    final navDocument = xml.XmlDocument.parse(utf8.decode(navFileContent));
+    final navNode =
+        navDocument.findElements('ncx', namespace: _kNcxNamespace).firstOrNull;
+    if (navNode == null) return false;
+    // Рекурсивная функция для обхода navPoints
+    final $playorders = <int>{};
+    Iterable<EpubNavigation$Point> parseNavPoints(
+        Iterable<xml.XmlElement> navPoints) sync* {
+      for (final navPoint in navPoints) {
+        final label = navPoint
+            .findElements('navLabel')
+            .firstOrNull
+            ?.findElements('text')
+            .firstOrNull
+            ?.innerText;
+        // TODO(plugfox): normalize src to absolute path
+        final src =
+            navPoint.findElements('content').firstOrNull?.getAttribute('src');
+        final meta = <String, String>{
+          for (final attr in navPoint.attributes)
+            attr.name.local.trim().toLowerCase(): attr.value,
+        };
+        final id = meta.remove('id');
+        final playorder = switch (meta.remove('playorder')) {
+          String v => int.tryParse(v),
+          _ => null,
+        };
+        final children = switch (navPoint.findElements('navPoint')) {
+          Iterable<xml.XmlElement> navPoints when navPoints.isNotEmpty =>
+            parseNavPoints(navPoints).toList(),
+          _ => null,
+        };
+        if (src == null || playorder == null || id == null) continue;
+        if ($playorders.contains(playorder)) continue;
+        $playorders.add(playorder);
+        yield EpubNavigation$Point(
+          id: id,
+          src: src,
+          label: label ?? '',
+          playorder: playorder,
+          children: children,
+          meta: meta.isEmpty ? null : meta,
+        );
+      }
+    }
+
+    final navPoints = navNode
+        .findElements('navMap', namespace: _kNcxNamespace)
+        .whereType<xml.XmlElement>()
+        .expand(
+            (elem) => elem.findElements('navPoint', namespace: _kNcxNamespace))
+        .whereType<xml.XmlElement>();
+    metadata.epubNavigation.points.addAll(parseNavPoints(navPoints));
+    final meta = navNode
+        .findElements('head')
+        .expand((node) => node.findElements('meta'))
+        .map<(String?, String?)>(
+            (node) => (node.getAttribute('name'), node.getAttribute('content')))
+        .whereType<(String, String)>()
+        .map<MapEntry<String, String>>((r) => MapEntry(r.$1, r.$2))
+        .toList();
+    if (meta.isNotEmpty) metadata.epubNavigation.meta.addEntries(meta);
+    return true;
+  }
+
+  static bool _addNavigationXHTML(
+      EpubMetadata metadata, zip.Archive archive, String rootDir) {
+    // TODO(plugfox): navigation
+    return false;
+  }
+
+  static bool _addNavigationFallback(
+      EpubMetadata metadata, zip.Archive archive, String rootDir) {
+    // TODO(plugfox): navigation
+    return false;
+  }
 }
