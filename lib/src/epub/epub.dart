@@ -107,9 +107,8 @@ final class EpubMetadata extends BookMetadata {
   /// {@nodoc}
   EpubSpine epubSpine = EpubSpine();
 
-  /// Epub navigation
-  /// {@nodoc}
-  EpubNavigation epubNavigation = EpubNavigation();
+  @override
+  EpubNavigation navigation = EpubNavigation();
 
   @override
   Map<String, Object?> toJson() => <String, Object?>{
@@ -117,7 +116,7 @@ final class EpubMetadata extends BookMetadata {
         '@version': epubVersion,
         '@manifest': epubManifest.toJson(),
         '@spine': epubSpine.toJson(),
-        '@navigation': epubNavigation.toJson(),
+        'navigation': navigation.toJson(),
         if (title.isNotEmpty) 'title': title,
         if (creator.isNotEmpty) 'creator': creator,
         if (contributor.isNotEmpty) 'contributor': contributor,
@@ -199,6 +198,7 @@ final class EpubManifest$Item {
 
   /// {@nodoc}
   Map<String, Object?> toJson() => <String, Object?>{
+        '@type': 'epub-manifest-item',
         'id': id,
         'media': media,
         'href': href,
@@ -278,6 +278,7 @@ final class EpubSpine$Item {
 
   /// {@nodoc}
   Map<String, Object?> toJson() => <String, Object?>{
+        '@type': 'epub-spine-item',
         'idref': idref,
         'linear': linear,
       };
@@ -288,17 +289,17 @@ final class EpubSpine$Item {
 
 /// {@nodoc}
 @internal
-final class EpubNavigation {
+final class EpubNavigation extends BookNavigation {
   /// {@nodoc}
   EpubNavigation({
-    List<EpubNavigation$Point>? points,
+    List<EpubNavigation$Point>? tableOfContents,
     Map<String, Object?>? meta,
-  })  : points = points ?? <EpubNavigation$Point>[],
+  })  : tableOfContents = tableOfContents ?? <EpubNavigation$Point>[],
         meta = meta ?? <String, Object?>{};
 
   /// {@nodoc}
   factory EpubNavigation.fromJson(Map<String, Object?> json) => EpubNavigation(
-        points: switch (json['points']) {
+        tableOfContents: switch (json['toc']) {
           List<Object?> points => <EpubNavigation$Point>[
               for (final point in points.whereType<Map<String, Object?>>())
                 EpubNavigation$Point.fromJson(point)
@@ -311,23 +312,40 @@ final class EpubNavigation {
         },
       );
 
-  /// {@nodoc}
-  final List<EpubNavigation$Point> points;
+  @override
+  final List<BookNavigation$Point> tableOfContents;
 
   /// Additional metadata for this value.
   /// {@nodoc}
   final Map<String, Object?> meta;
 
-  /// {@nodoc}
+  @override
+  void visitChildElements(void Function(BookNavigation$Point point) visitor) {
+    for (final point in tableOfContents) {
+      visitor(point);
+      point.visitChildElements(visitor);
+    }
+  }
+
+  @override
+  List<BookNavigation$Point> getReadingOrder() {
+    final readingOrder = <BookNavigation$Point>[];
+    visitChildElements(readingOrder.add);
+    return readingOrder..sort();
+  }
+
+  @override
   Map<String, Object?> toJson() => <String, Object?>{
-        'points': points,
+        '@type': 'epub-nav',
+        'toc': tableOfContents,
         if (meta.isNotEmpty) 'meta': meta,
       };
 }
 
 /// {@nodoc}
 @internal
-final class EpubNavigation$Point {
+final class EpubNavigation$Point extends BookNavigation$Point
+    implements Comparable<EpubNavigation$Point> {
   /// {@nodoc}
   EpubNavigation$Point({
     required this.id,
@@ -369,20 +387,40 @@ final class EpubNavigation$Point {
   final String src;
 
   /// {@nodoc}
+  @override
   final String label;
 
   /// {@nodoc}
+  @override
   final int playorder;
 
   /// {@nodoc}
   final List<EpubNavigation$Point>? children;
 
+  @override
+  bool get hasChildren => children?.isNotEmpty ?? false;
+
   /// Additional metadata for this value.
   /// {@nodoc}
   final Map<String, Object?> meta;
 
+  @override
+  void visitChildElements(void Function(BookNavigation$Point point) visitor) {
+    if (!hasChildren) return;
+    for (final child in children!) {
+      visitor(child);
+      child.visitChildElements(visitor);
+    }
+  }
+
+  @override
+  int compareTo(covariant EpubNavigation$Point other) =>
+      playorder.compareTo(other.playorder);
+
   /// {@nodoc}
+  @override
   Map<String, Object?> toJson() => <String, Object?>{
+        '@type': 'epub-nav-point',
         'id': id,
         'src': src,
         'label': label,

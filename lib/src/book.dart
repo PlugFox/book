@@ -81,6 +81,9 @@ abstract base class BookMetadata {
   /// Дополнительные метаданные.
   abstract final List<BookMetadataValue> meta;
 
+  /// Book navigation.
+  abstract final BookNavigation navigation;
+
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
 }
@@ -134,4 +137,43 @@ final class _MetadataJSONDecoder
         );
     }
   }
+}
+
+/// Book navigation.
+abstract base class BookNavigation {
+  /// Book navigation.
+  const BookNavigation();
+
+  /// Book navigation points tree (table of contents).
+  abstract final List<BookNavigation$Point> tableOfContents;
+
+  /// Visits all child elements.
+  void visitChildElements(void Function(BookNavigation$Point point) visitor);
+
+  /// Book navigation points list (reading order).
+  List<BookNavigation$Point> getReadingOrder();
+
+  /// Converts this object to a JSON object.
+  Map<String, Object?> toJson();
+}
+
+/// Book navigation point.
+abstract base class BookNavigation$Point {
+  /// Book navigation point.
+  const BookNavigation$Point();
+
+  /// Label for the book navigation point.
+  abstract final String label;
+
+  /// Play order for the book navigation point.
+  abstract final int playorder;
+
+  /// Has child elements.
+  bool get hasChildren;
+
+  /// Visits all child elements.
+  void visitChildElements(void Function(BookNavigation$Point point) visitor);
+
+  /// Converts this object to a JSON object.
+  Map<String, Object?> toJson();
 }

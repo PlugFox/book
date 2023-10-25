@@ -251,7 +251,9 @@ final class EpubMetadataExtractor {
             ?.findElements('text')
             .firstOrNull
             ?.innerText;
+
         // TODO(plugfox): normalize src to absolute path
+
         final src =
             navPoint.findElements('content').firstOrNull?.getAttribute('src');
         final meta = <String, String>{
@@ -288,16 +290,21 @@ final class EpubMetadataExtractor {
         .expand(
             (elem) => elem.findElements('navPoint', namespace: _kNcxNamespace))
         .whereType<xml.XmlElement>();
-    metadata.epubNavigation.points.addAll(parseNavPoints(navPoints));
-    final meta = navNode
+
+    final metaEntities = navNode
         .findElements('head')
         .expand((node) => node.findElements('meta'))
         .map<(String?, String?)>(
             (node) => (node.getAttribute('name'), node.getAttribute('content')))
-        .whereType<(String, String)>()
-        .map<MapEntry<String, String>>((r) => MapEntry(r.$1, r.$2))
-        .toList();
-    if (meta.isNotEmpty) metadata.epubNavigation.meta.addEntries(meta);
+        .where((e) => e.$1 != null && e.$2 != null)
+        .cast<(String, String)>();
+
+    metadata.navigation = EpubNavigation(
+      tableOfContents: parseNavPoints(navPoints).toList(),
+      meta: <String, String>{
+        for (final e in metaEntities) e.$1: e.$2,
+      },
+    );
     return true;
   }
 
