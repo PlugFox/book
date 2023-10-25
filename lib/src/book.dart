@@ -140,6 +140,7 @@ final class _MetadataJSONDecoder
 }
 
 /// Book navigation.
+@immutable
 abstract base class BookNavigation {
   /// Book navigation.
   const BookNavigation();
@@ -158,6 +159,7 @@ abstract base class BookNavigation {
 }
 
 /// Book navigation point.
+@immutable
 abstract base class BookNavigation$Point {
   /// Book navigation point.
   const BookNavigation$Point();

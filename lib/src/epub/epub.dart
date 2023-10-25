@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
 
+import 'dart:collection';
+
 import 'package:archive/archive.dart' as zip;
 import 'package:book/src/book.dart';
 import 'package:book/src/epub/epub_metadata_extractor.dart';
@@ -289,6 +291,7 @@ final class EpubSpine$Item {
 
 /// {@nodoc}
 @internal
+@immutable
 final class EpubNavigation extends BookNavigation {
   /// {@nodoc}
   EpubNavigation({
@@ -300,14 +303,17 @@ final class EpubNavigation extends BookNavigation {
   /// {@nodoc}
   factory EpubNavigation.fromJson(Map<String, Object?> json) => EpubNavigation(
         tableOfContents: switch (json['toc']) {
-          List<Object?> points => <EpubNavigation$Point>[
-              for (final point in points.whereType<Map<String, Object?>>())
-                EpubNavigation$Point.fromJson(point)
-            ],
-          _ => <EpubNavigation$Point>[],
+          List<Object?> points => UnmodifiableListView<EpubNavigation$Point>(
+              <EpubNavigation$Point>[
+                for (final point in points.whereType<Map<String, Object?>>())
+                  EpubNavigation$Point.fromJson(point)
+              ],
+            ),
+          _ => const <EpubNavigation$Point>[],
         },
         meta: switch (json['meta']) {
-          Map<String, Object?> meta => meta,
+          Map<String, Object?> meta =>
+            UnmodifiableMapView<String, Object?>(meta),
           _ => null,
         },
       );
@@ -344,6 +350,7 @@ final class EpubNavigation extends BookNavigation {
 
 /// {@nodoc}
 @internal
+@immutable
 final class EpubNavigation$Point extends BookNavigation$Point
     implements Comparable<EpubNavigation$Point> {
   /// {@nodoc}
