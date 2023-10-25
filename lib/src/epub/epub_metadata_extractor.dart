@@ -84,12 +84,10 @@ final class EpubMetadataExtractor {
       if (e.attributes.isEmpty) {
         value = BookMetadataValue(e.innerText);
       } else {
-        {
-          value = BookMetadataValue(e.innerText, <String, Object?>{
-            for (final attr in e.attributes)
-              attr.name.local.trim().toLowerCase(): attr.value,
-          });
-        }
+        value = BookMetadataValue(e.innerText, <String, Object?>{
+          for (final attr in e.attributes)
+            attr.name.local.trim().toLowerCase(): attr.value,
+        });
         switch (e.name.local.trim().toLowerCase()) {
           case 'title':
             metadata.title.add(value);
@@ -224,15 +222,16 @@ final class EpubMetadataExtractor {
   static bool _addNavigationNavFile(
       EpubMetadata metadata, zip.Archive archive, String rootDir) {
     if (metadata.epubSpine.tableOfContents == null) return false;
-    var navFile = metadata.epubManifest.items
+    var navFileNcx = metadata.epubManifest.items
         .firstWhereOrNull(
             (item) => item.id == metadata.epubSpine.tableOfContents)
         ?.href;
-    if (navFile == null) return false;
-    navFile = '$rootDir/$navFile'.toLowerCase();
+    if (navFileNcx == null) return false;
+    navFileNcx = '$rootDir/$navFileNcx';
+    final basePath = p.dirname(navFileNcx);
     final navFileContent = archive.files
         .firstWhereOrNull(
-          (file) => file.name.toLowerCase() == navFile,
+          (file) => file.name == navFileNcx,
         )
         ?.content;
     if (navFileContent is! List<int>) return false;
@@ -240,6 +239,13 @@ final class EpubMetadataExtractor {
     final navNode =
         navDocument.findElements('ncx', namespace: _kNcxNamespace).firstOrNull;
     if (navNode == null) return false;
+
+    // Нормализация путей к файлам внутри архива
+    String normalizePath(String relativePath) => p
+        .normalize(p.join(basePath, relativePath))
+        .trim()
+        .replaceAll(r'\', '/');
+
     // Рекурсивная функция для обхода navPoints
     final $playorders = <int>{};
     Iterable<EpubNavigation$Point> parseNavPoints(
@@ -254,7 +260,7 @@ final class EpubMetadataExtractor {
 
         // TODO(plugfox): normalize src to absolute path
 
-        final src =
+        final path =
             navPoint.findElements('content').firstOrNull?.getAttribute('src');
         final meta = <String, String>{
           for (final attr in navPoint.attributes)
@@ -270,12 +276,23 @@ final class EpubMetadataExtractor {
             parseNavPoints(navPoints).toList(),
           _ => null,
         };
-        if (src == null || playorder == null || id == null) continue;
+        if (path == null || playorder == null || id == null) continue;
         if ($playorders.contains(playorder)) continue;
         $playorders.add(playorder);
+        final fragmentIdx = path.indexOf('#');
+        final String src;
+        final String? fragment;
+        if (fragmentIdx == -1) {
+          src = normalizePath(path);
+          fragment = null;
+        } else {
+          src = normalizePath(path.substring(0, fragmentIdx));
+          fragment = path.substring(fragmentIdx + 1);
+        }
         yield EpubNavigation$Point(
           id: id,
           src: src,
+          fragment: fragment,
           label: label ?? '',
           playorder: playorder,
           children: children,
@@ -291,6 +308,9 @@ final class EpubMetadataExtractor {
             (elem) => elem.findElements('navPoint', namespace: _kNcxNamespace))
         .whereType<xml.XmlElement>();
 
+    final toc = UnmodifiableListView<EpubNavigation$Point>(
+        parseNavPoints(navPoints).toList(growable: false));
+
     final metaEntities = navNode
         .findElements('head')
         .expand((node) => node.findElements('meta'))
@@ -299,13 +319,42 @@ final class EpubMetadataExtractor {
         .where((e) => e.$1 != null)
         .cast<(String, Object?)>();
 
-    metadata.navigation = EpubNavigation(
-      tableOfContents:
-          UnmodifiableListView<EpubNavigation$Point>(parseNavPoints(navPoints)),
-      meta: UnmodifiableMapView<String, Object?>(<String, Object?>{
-        for (final e in metaEntities) e.$1: e.$2,
-      }),
+    final meta = UnmodifiableMapView<String, Object?>(<String, Object?>{
+      for (final e in metaEntities) e.$1: e.$2,
+    });
+
+    final navigation = EpubNavigation(
+      tableOfContents: toc,
+      meta: meta,
     );
+
+    // Assert that all navigation playorders are unique.
+    assert(() {
+      final playorders = $playorders.toSet();
+      final total = playorders.length;
+      var counter = 0;
+      navigation.visitChildElements((point) {
+        counter++;
+        playorders.remove(point.playorder);
+      });
+      return counter == total;
+    }(), 'Navigation playorders are not unique.');
+
+    // Assert that all navigation files are in the archive.
+    assert(() {
+      final archiveFiles =
+          archive.files.map<String>((file) => file.name).toSet();
+      final files = <String>{};
+      navigation.visitChildElements((point) {
+        files.add(point.src);
+      });
+
+      final notFound = files.difference(archiveFiles);
+
+      return notFound.isEmpty;
+    }(), 'Navigation files not found in the archive.');
+
+    metadata.navigation = navigation;
     return true;
   }
 

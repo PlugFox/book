@@ -17,6 +17,21 @@ void main() => group('EPUB', () {
           expect(book, isA<Book>());
           final metadata = book.getMetadata();
           expect(metadata, isA<BookMetadata>());
+          final readingOrder = metadata.navigation.getReadingOrder();
+          {
+            if (readingOrder.length > 1) {
+              for (var i = 1; i < readingOrder.length; i++) {
+                expect(
+                  readingOrder[i].playorder,
+                  greaterThan(
+                    readingOrder[i - 1].playorder,
+                  ),
+                );
+              }
+            }
+          }
+
+          expect(readingOrder, isA<List<BookNavigation$Point>>());
         }
       });
     });

@@ -319,14 +319,15 @@ final class EpubNavigation extends BookNavigation {
       );
 
   @override
-  final List<BookNavigation$Point> tableOfContents;
+  final List<EpubNavigation$Point> tableOfContents;
 
   /// Additional metadata for this value.
   /// {@nodoc}
   final Map<String, Object?> meta;
 
   @override
-  void visitChildElements(void Function(BookNavigation$Point point) visitor) {
+  void visitChildElements(
+      covariant void Function(EpubNavigation$Point point) visitor) {
     for (final point in tableOfContents) {
       visitor(point);
       point.visitChildElements(visitor);
@@ -359,6 +360,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
     required this.src,
     required this.label,
     required this.playorder,
+    this.fragment,
     this.children,
     Map<String, Object?>? meta,
   }) : meta = meta ?? <String, Object?>{};
@@ -367,13 +369,14 @@ final class EpubNavigation$Point extends BookNavigation$Point
   factory EpubNavigation$Point.fromJson(Map<String, Object?> json) =>
       EpubNavigation$Point(
         id: json['id']?.toString() ?? '',
-        src: json['src']?.toString() ?? '',
         label: json['label']?.toString() ?? '',
         playorder: switch (json['playorder']) {
           int playorder => playorder,
           String playorder => int.tryParse(playorder) ?? -1,
           _ => -1,
         },
+        src: json['src']?.toString() ?? '',
+        fragment: json['fragment']?.toString(),
         children: switch (json['children']) {
           List<Object?> children => <EpubNavigation$Point>[
               for (final child in children.whereType<Map<String, Object?>>())
@@ -394,6 +397,9 @@ final class EpubNavigation$Point extends BookNavigation$Point
   final String src;
 
   /// {@nodoc}
+  final String? fragment;
+
+  /// {@nodoc}
   @override
   final String label;
 
@@ -412,7 +418,8 @@ final class EpubNavigation$Point extends BookNavigation$Point
   final Map<String, Object?> meta;
 
   @override
-  void visitChildElements(void Function(BookNavigation$Point point) visitor) {
+  void visitChildElements(
+      covariant void Function(EpubNavigation$Point point) visitor) {
     if (!hasChildren) return;
     for (final child in children!) {
       visitor(child);
@@ -429,9 +436,10 @@ final class EpubNavigation$Point extends BookNavigation$Point
   Map<String, Object?> toJson() => <String, Object?>{
         '@type': 'epub-nav-point',
         'id': id,
-        'src': src,
         'label': label,
         'playorder': playorder,
+        'src': src,
+        if (fragment != null) 'fragment': fragment,
         if (children != null) 'children': children,
         if (meta.isNotEmpty) 'meta': meta,
       };
