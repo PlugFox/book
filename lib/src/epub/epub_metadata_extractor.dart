@@ -294,16 +294,17 @@ final class EpubMetadataExtractor {
     final metaEntities = navNode
         .findElements('head')
         .expand((node) => node.findElements('meta'))
-        .map<(String?, String?)>(
+        .map<(String?, Object?)>(
             (node) => (node.getAttribute('name'), node.getAttribute('content')))
-        .where((e) => e.$1 != null && e.$2 != null)
-        .cast<(String, String)>();
+        .where((e) => e.$1 != null)
+        .cast<(String, Object?)>();
 
     metadata.navigation = EpubNavigation(
-      tableOfContents: parseNavPoints(navPoints).toList(),
-      meta: <String, String>{
+      tableOfContents:
+          UnmodifiableListView<EpubNavigation$Point>(parseNavPoints(navPoints)),
+      meta: UnmodifiableMapView<String, Object?>(<String, Object?>{
         for (final e in metaEntities) e.$1: e.$2,
-      },
+      }),
     );
     return true;
   }
