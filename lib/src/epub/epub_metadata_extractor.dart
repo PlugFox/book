@@ -258,8 +258,6 @@ final class EpubMetadataExtractor {
             .firstOrNull
             ?.innerText;
 
-        // TODO(plugfox): normalize src to absolute path
-
         final path =
             navPoint.findElements('content').firstOrNull?.getAttribute('src');
         final meta = <String, String>{
@@ -271,13 +269,17 @@ final class EpubMetadataExtractor {
           String v => int.tryParse(v),
           _ => null,
         };
-        final children = switch (navPoint.findElements('navPoint')) {
-          Iterable<xml.XmlElement> navPoints when navPoints.isNotEmpty =>
-            parseNavPoints(navPoints).toList(),
-          _ => null,
-        };
-        if (path == null || playorder == null || id == null) continue;
+
+        // Проверка наличия всех необходимых атрибутов
+        if (path == null || playorder == null) continue;
         if ($playorders.contains(playorder)) continue;
+
+        // Обработка вложенных элементов
+        final inner = navPoint.findElements('navPoint').toList(growable: false);
+        final children = inner.isEmpty
+            ? null
+            : parseNavPoints(inner).toList(growable: false);
+
         $playorders.add(playorder);
         final fragmentIdx = path.indexOf('#');
         final String src;
@@ -361,7 +363,117 @@ final class EpubMetadataExtractor {
   static bool _addNavigationXHTML(
       EpubMetadata metadata, zip.Archive archive, String rootDir) {
     // TODO(plugfox): navigation
-    return false;
+
+    var navFilePath = metadata.epubManifest.items
+        .firstWhereOrNull((item) => item.meta['properties'] == 'nav')
+        ?.href;
+    if (navFilePath == null) return false;
+    navFilePath = '$rootDir/$navFilePath';
+    final navFileContent = archive.files
+        .firstWhereOrNull(
+          (file) => file.name == navFilePath,
+        )
+        ?.content;
+    if (navFileContent is! List<int>) return false;
+    final navDocument = xml.XmlDocument.parse(utf8.decode(navFileContent));
+    final basePath = p.dirname(navFilePath);
+
+    // Нормализация путей к файлам внутри архива
+    String normalizePath(String relativePath) => p
+        .normalize(p.join(basePath, relativePath))
+        .trim()
+        .replaceAll(r'\', '/');
+
+    final navNode = navDocument
+        .findAllElements('nav', namespace: '*')
+        .where((node) => node.getAttribute('epub:type') == 'toc')
+        .firstOrNull;
+
+    if (navNode == null) return false;
+
+    var $counter = 0; // Счетчик для playorder
+    // Рекурсивная функция для обхода navPoints
+    Iterable<EpubNavigation$Point> parseNavPoints(
+        Iterable<xml.XmlElement> navPoints) sync* {
+      for (final navPoint in navPoints) {
+        $counter++;
+        final playorder = $counter;
+
+        String? label, path, id = navPoint.getAttribute('id');
+        final anchors = navPoint.findElements('a', namespace: '*');
+
+        // Получение текста ссылки и пути к файлу
+        for (final anchor in anchors) {
+          label = anchor.innerText;
+          path = anchor.getAttribute('href');
+          if (path != null && path.isNotEmpty) break;
+        }
+
+        // Проверка наличия всех необходимых атрибутов
+        if (path == null) continue;
+
+        // Обработка вложенных элементов
+        final inner = navPoint
+            .findElements('ol', namespace: '*')
+            .expand((elem) => elem.findElements('li', namespace: '*'))
+            .toList(growable: false);
+        final children = inner.isEmpty
+            ? null
+            : parseNavPoints(inner).toList(growable: false);
+
+        // Формирование объекта EpubNavigation$Point
+        final fragmentIdx = path.indexOf('#');
+        final String src;
+        final String? fragment;
+        if (fragmentIdx == -1) {
+          src = normalizePath(path);
+          fragment = null;
+        } else {
+          src = normalizePath(path.substring(0, fragmentIdx));
+          fragment = path.substring(fragmentIdx + 1);
+        }
+        yield EpubNavigation$Point(
+          id: id,
+          src: src,
+          fragment: fragment,
+          label: label ?? '',
+          playorder: playorder,
+          children: children,
+          meta: null,
+        );
+      }
+    }
+
+    final navPoints = navNode
+        .findElements('ol', namespace: '*')
+        .whereType<xml.XmlElement>()
+        .expand((elem) => elem.findElements('li', namespace: '*'))
+        .whereType<xml.XmlElement>();
+
+    final toc = UnmodifiableListView<EpubNavigation$Point>(
+        parseNavPoints(navPoints).toList(growable: false));
+
+    final navigation = EpubNavigation(
+      tableOfContents: toc,
+      meta: null,
+    );
+
+    // Assert that all navigation files are in the archive.
+    assert(() {
+      final archiveFiles =
+          archive.files.map<String>((file) => file.name).toSet();
+      final files = <String>{};
+      navigation.visitChildElements((point) {
+        files.add(point.src);
+      });
+
+      final notFound = files.difference(archiveFiles);
+
+      return notFound.isEmpty;
+    }(), 'Navigation files not found in the archive.');
+
+    metadata.navigation = navigation;
+    return true;
   }
 
   static bool _addNavigationFallback(

@@ -368,7 +368,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
   /// {@nodoc}
   factory EpubNavigation$Point.fromJson(Map<String, Object?> json) =>
       EpubNavigation$Point(
-        id: json['id']?.toString() ?? '',
+        id: json['id']?.toString(),
         label: json['label']?.toString() ?? '',
         playorder: switch (json['playorder']) {
           int playorder => playorder,
@@ -391,7 +391,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
       );
 
   /// {@nodoc}
-  final String id;
+  final String? id;
 
   /// {@nodoc}
   final String src;
@@ -435,7 +435,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
   @override
   Map<String, Object?> toJson() => <String, Object?>{
         '@type': 'epub-nav-point',
-        'id': id,
+        if (id != null) 'id': id,
         'label': label,
         'playorder': playorder,
         'src': src,
