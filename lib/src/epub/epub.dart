@@ -39,6 +39,7 @@ final class Epub extends Book {
 
   @override
   BookImage? getCoverImage(final BookMetadata metadata) {
+    assert(metadata is EpubMetadata, 'metadata is not EpubMetadata');
     if (metadata is! EpubMetadata) return null;
     EpubManifest$Item? coverItem;
     if (metadata.epubVersion.startsWith('2.')) {
@@ -55,6 +56,8 @@ final class Epub extends Book {
       coverItem = metadata.epubManifest.items.firstWhereOrNull(
         (item) => item.meta?['properties'] == 'cover-image',
       );
+    } else {
+      assert(false, 'Unsupported EPUB version');
     }
     if (coverItem == null) return null;
     final EpubManifest$Item(href: String href, media: String media) = coverItem;
