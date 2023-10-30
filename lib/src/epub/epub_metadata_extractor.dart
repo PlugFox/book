@@ -362,8 +362,6 @@ final class EpubMetadataExtractor {
 
   static bool _addNavigationXHTML(
       EpubMetadata metadata, zip.Archive archive, String rootDir) {
-    // TODO(plugfox): navigation
-
     var navFilePath = metadata.epubManifest.items
         .firstWhereOrNull((item) => item.meta['properties'] == 'nav')
         ?.href;
@@ -477,8 +475,6 @@ final class EpubMetadataExtractor {
   }
 
   static bool _addNavigationFallback(
-      EpubMetadata metadata, zip.Archive archive, String rootDir) {
-    // TODO(plugfox): navigation
-    return false;
-  }
+          EpubMetadata metadata, zip.Archive archive, String rootDir) =>
+      false;
 }
