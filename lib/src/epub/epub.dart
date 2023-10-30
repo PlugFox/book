@@ -1,11 +1,13 @@
 // ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
 
-import 'dart:collection';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart' as zip;
 import 'package:book/src/book.dart';
 import 'package:book/src/epub/epub_metadata_extractor.dart';
+import 'package:collection/collection.dart';
 import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
 
 /// {@nodoc}
 @internal
@@ -34,6 +36,45 @@ final class Epub extends Book {
         archive: _archive,
         rootFile: _rootFile,
       );
+
+  @override
+  BookImage? getCoverImage(final BookMetadata metadata) {
+    if (metadata is! EpubMetadata) return null;
+    if (metadata.epubVersion.startsWith('2.')) {
+      final itemId = metadata.meta
+          .where((e) => e.meta?['name'] == 'cover')
+          .map<Object?>((e) => e.meta?['content'])
+          .whereType<String>()
+          .firstOrNull;
+      if (itemId == null) return null;
+      final coverItem = metadata.epubManifest.items.firstWhereOrNull(
+        (item) => item.id == itemId,
+      );
+      if (coverItem == null) return null;
+      final EpubManifest$Item(href: String href, media: String media) =
+          coverItem;
+      final file = _archive.files.firstWhereOrNull(
+        (file) => file.name == href,
+      );
+      if (file == null) return null;
+      final content = file.content;
+      if (content is! List<int>) return null;
+      final bytes = Uint8List.fromList(content);
+      return EpubImage(
+        path: href,
+        name: p.basename(href),
+        extension: p.extension(href),
+        media: media,
+        size: content.length,
+        bytes: bytes,
+      );
+    } else if (metadata.epubVersion.startsWith('3.')) {
+      // TODO(plugfox): implement
+      return null;
+    } else {
+      return null;
+    }
+  }
 
   @override
   int get hashCode => hash.hashCode;
@@ -446,4 +487,37 @@ final class EpubNavigation$Point extends BookNavigation$Point
 
   @override
   String toString() => label;
+}
+
+/// {@nodoc}
+@internal
+@immutable
+final class EpubImage extends BookImage {
+  /// {@nodoc}
+  const EpubImage({
+    required this.path,
+    required this.name,
+    required this.extension,
+    required this.media,
+    required this.size,
+    required this.bytes,
+  });
+
+  @override
+  final String path;
+
+  @override
+  final String name;
+
+  @override
+  final String extension;
+
+  @override
+  final String media;
+
+  @override
+  final int size;
+
+  @override
+  final Uint8List bytes;
 }

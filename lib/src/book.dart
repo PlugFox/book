@@ -18,8 +18,12 @@ abstract base class Book {
   /// Book SHA-256 hash (hexadecimal string)
   abstract final String hash;
 
-  /// Book metadata.
+  /// Book metadata (title, author, etc.).
+  /// Used to display book information and get other book data.
   BookMetadata getMetadata();
+
+  /// Get book cover image.
+  BookImage? getCoverImage(BookMetadata metadata);
 }
 
 /// Book metadata.
@@ -178,4 +182,33 @@ abstract base class BookNavigation$Point {
 
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
+}
+
+/// Book image.
+@immutable
+abstract class BookImage {
+  /// Book image.
+  const BookImage();
+
+  /// Book image path.
+  /// e.g. "OEBPS/Images/cover.jpg", "OEBPS/Images/CoverDesign.jpg", etc.
+  abstract final String path;
+
+  /// Book image name.
+  /// e.g. "cover.jpg", "CoverDesign.jpg", "image.png", etc.
+  abstract final String name;
+
+  /// Book image extension.
+  /// e.g. ".jpg", ".png", ".gif", etc.
+  abstract final String extension;
+
+  /// Book image media type.
+  /// e.g. "image/jpeg", "image/png", "image/gif", etc.
+  abstract final String media;
+
+  /// Book image size in bytes.
+  abstract final int size;
+
+  /// Book image bytes.
+  abstract final Uint8List bytes;
 }

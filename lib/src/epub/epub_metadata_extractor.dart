@@ -23,13 +23,12 @@ final class EpubMetadataExtractor {
   EpubMetadata call({required zip.Archive archive, required String rootFile}) {
     final packageNode = _getPackageNode(archive: archive, rootFile: rootFile);
     final metadata = EpubMetadata();
+    final rootDir = p.dirname(rootFile);
     _addVersion(metadata, packageNode);
     _addMetadata(metadata, packageNode);
-    _addManifest(metadata, packageNode);
+    _addManifest(metadata, packageNode, rootDir);
     _addSpine(metadata, packageNode);
-    final rootDir = p.dirname(rootFile);
     _addNavigation(metadata, archive, rootDir);
-    // TODO(plugfox): navigation
     return metadata;
   }
 
@@ -126,7 +125,8 @@ final class EpubMetadataExtractor {
     }
   }
 
-  static void _addManifest(EpubMetadata metadata, xml.XmlElement packageNode) {
+  static void _addManifest(
+      EpubMetadata metadata, xml.XmlElement packageNode, String rootDir) {
     final elements =
         _elementsExtractor(packageNode, 'manifest', _kOpfNamespace);
     String? id, media, href;
@@ -140,7 +140,7 @@ final class EpubMetadataExtractor {
           case 'media-type':
             media = attr.value.trim().toLowerCase();
           case 'href':
-            href = attr.value;
+            href = '$rootDir/${attr.value}';
           default:
             meta = <String, Object?>{
               for (final attr in e.attributes)
