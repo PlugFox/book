@@ -40,6 +40,7 @@ final class Epub extends Book {
   @override
   BookImage? getCoverImage(final BookMetadata metadata) {
     if (metadata is! EpubMetadata) return null;
+    EpubManifest$Item? coverItem;
     if (metadata.epubVersion.startsWith('2.')) {
       final itemId = metadata.meta
           .where((e) => e.meta?['name'] == 'cover')
@@ -47,33 +48,31 @@ final class Epub extends Book {
           .whereType<String>()
           .firstOrNull;
       if (itemId == null) return null;
-      final coverItem = metadata.epubManifest.items.firstWhereOrNull(
+      coverItem = metadata.epubManifest.items.firstWhereOrNull(
         (item) => item.id == itemId,
       );
-      if (coverItem == null) return null;
-      final EpubManifest$Item(href: String href, media: String media) =
-          coverItem;
-      final file = _archive.files.firstWhereOrNull(
-        (file) => file.name == href,
-      );
-      if (file == null) return null;
-      final content = file.content;
-      if (content is! List<int>) return null;
-      final bytes = Uint8List.fromList(content);
-      return EpubImage(
-        path: href,
-        name: p.basename(href),
-        extension: p.extension(href),
-        media: media,
-        size: content.length,
-        bytes: bytes,
-      );
     } else if (metadata.epubVersion.startsWith('3.')) {
-      // TODO(plugfox): implement
-      return null;
-    } else {
-      return null;
+      coverItem = metadata.epubManifest.items.firstWhereOrNull(
+        (item) => item.meta?['properties'] == 'cover-image',
+      );
     }
+    if (coverItem == null) return null;
+    final EpubManifest$Item(href: String href, media: String media) = coverItem;
+    final file = _archive.files.firstWhereOrNull(
+      (file) => file.name == href,
+    );
+    if (file == null) return null;
+    final content = file.content;
+    if (content is! List<int>) return null;
+    final bytes = Uint8List.fromList(content);
+    return EpubImage(
+      path: href,
+      name: p.basename(href),
+      extension: p.extension(href),
+      media: media,
+      size: content.length,
+      bytes: bytes,
+    );
   }
 
   @override
@@ -138,7 +137,13 @@ final class EpubMetadata extends BookMetadata {
   @override
   final List<BookMetadataValue> meta = <BookMetadataValue>[];
 
+  /// Epub root directory
+  /// e.g. OEBPS/ or EPUB/
+  /// {@nodoc}
+  String epubDirectory = '';
+
   /// Epub version
+  /// e.g. 2.0 or 3.0
   /// {@nodoc}
   String epubVersion = '';
 
@@ -217,8 +222,8 @@ final class EpubManifest$Item {
     required this.id,
     required this.media,
     required this.href,
-    Map<String, Object?>? meta,
-  }) : meta = meta ?? <String, Object?>{};
+    required this.meta,
+  });
 
   /// {@nodoc}
   factory EpubManifest$Item.fromJson(Map<String, Object?> json) =>
@@ -237,7 +242,7 @@ final class EpubManifest$Item {
 
   /// Additional metadata for this value.
   /// {@nodoc}
-  final Map<String, Object?> meta;
+  final Map<String, Object?>? meta;
 
   /// {@nodoc}
   Map<String, Object?> toJson() => <String, Object?>{
@@ -245,7 +250,7 @@ final class EpubManifest$Item {
         'id': id,
         'media': media,
         'href': href,
-        if (meta.isNotEmpty) 'meta': meta,
+        if (meta?.isNotEmpty ?? false) 'meta': meta,
       };
 
   @override

@@ -22,13 +22,12 @@ final class EpubMetadataExtractor {
   /// {@nodoc}
   EpubMetadata call({required zip.Archive archive, required String rootFile}) {
     final packageNode = _getPackageNode(archive: archive, rootFile: rootFile);
-    final metadata = EpubMetadata();
-    final rootDir = p.dirname(rootFile);
+    final metadata = EpubMetadata()..epubDirectory = p.dirname(rootFile);
     _addVersion(metadata, packageNode);
     _addMetadata(metadata, packageNode);
-    _addManifest(metadata, packageNode, rootDir);
+    _addManifest(metadata, packageNode);
     _addSpine(metadata, packageNode);
-    _addNavigation(metadata, archive, rootDir);
+    _addNavigation(metadata, archive);
     return metadata;
   }
 
@@ -125,8 +124,7 @@ final class EpubMetadataExtractor {
     }
   }
 
-  static void _addManifest(
-      EpubMetadata metadata, xml.XmlElement packageNode, String rootDir) {
+  static void _addManifest(EpubMetadata metadata, xml.XmlElement packageNode) {
     final elements =
         _elementsExtractor(packageNode, 'manifest', _kOpfNamespace);
     String? id, media, href;
@@ -140,12 +138,10 @@ final class EpubMetadataExtractor {
           case 'media-type':
             media = attr.value.trim().toLowerCase();
           case 'href':
-            href = '$rootDir/${attr.value}';
+            href = '${metadata.epubDirectory}/${attr.value}';
           default:
-            meta = <String, Object?>{
-              for (final attr in e.attributes)
-                attr.name.local.trim().toLowerCase(): attr.value,
-            };
+            meta ??= <String, Object?>{};
+            meta[attr.name.local] = attr.value;
         }
       }
       if (id == null ||
@@ -207,27 +203,26 @@ final class EpubMetadataExtractor {
           .expand((elem) => elem.children)
           .whereType<xml.XmlElement>();
 
-  static void _addNavigation(
-      EpubMetadata metadata, zip.Archive archive, String rootDir) {
-    final methods = <bool Function(EpubMetadata, zip.Archive, String)>[
+  static void _addNavigation(EpubMetadata metadata, zip.Archive archive) {
+    final methods = <bool Function(EpubMetadata, zip.Archive)>[
       _addNavigationNavFile, // EPUB 2.0
       _addNavigationXHTML, // EPUB 3.0
       _addNavigationFallback, // Fallback
     ];
     for (var i = 0;
-        i < methods.length && !methods[i](metadata, archive, rootDir);
+        i < methods.length && !methods[i](metadata, archive);
         i++) {}
   }
 
   static bool _addNavigationNavFile(
-      EpubMetadata metadata, zip.Archive archive, String rootDir) {
+      EpubMetadata metadata, zip.Archive archive) {
     if (metadata.epubSpine.tableOfContents == null) return false;
     var navFileNcx = metadata.epubManifest.items
         .firstWhereOrNull(
             (item) => item.id == metadata.epubSpine.tableOfContents)
         ?.href;
     if (navFileNcx == null) return false;
-    navFileNcx = '$rootDir/$navFileNcx';
+    navFileNcx = '${metadata.epubDirectory}/$navFileNcx';
     final basePath = p.dirname(navFileNcx);
     final navFileContent = archive.files
         .firstWhereOrNull(
@@ -360,13 +355,12 @@ final class EpubMetadataExtractor {
     return true;
   }
 
-  static bool _addNavigationXHTML(
-      EpubMetadata metadata, zip.Archive archive, String rootDir) {
+  static bool _addNavigationXHTML(EpubMetadata metadata, zip.Archive archive) {
     var navFilePath = metadata.epubManifest.items
-        .firstWhereOrNull((item) => item.meta['properties'] == 'nav')
+        .firstWhereOrNull((item) => item.meta?['properties'] == 'nav')
         ?.href;
     if (navFilePath == null) return false;
-    navFilePath = '$rootDir/$navFilePath';
+    navFilePath = '${metadata.epubDirectory}/$navFilePath';
     final navFileContent = archive.files
         .firstWhereOrNull(
           (file) => file.name == navFilePath,
@@ -475,6 +469,6 @@ final class EpubMetadataExtractor {
   }
 
   static bool _addNavigationFallback(
-          EpubMetadata metadata, zip.Archive archive, String rootDir) =>
+          EpubMetadata metadata, zip.Archive archive) =>
       false;
 }

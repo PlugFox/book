@@ -45,8 +45,21 @@ void main() => group('EPUB', () {
           final book = Book.epub(
               io.File('temp/Mushoku Tensei - 1.epub').readAsBytesSync());
           final metadata = book.getMetadata();
-          final image = book.getCoverImage(metadata);
           expect(metadata, isA<BookMetadata>());
+          final image = book.getCoverImage(metadata);
+          expect(image, isA<BookImage>());
+        },
+      );
+
+      test(
+        'epub_v3',
+        () {
+          final book =
+              Book.epub(io.File('temp/epub30-spec.epub').readAsBytesSync());
+          final metadata = book.getMetadata();
+          expect(metadata, isA<BookMetadata>());
+          final image = book.getCoverImage(metadata);
+          expect(image, isA<BookImage>());
         },
       );
     });
