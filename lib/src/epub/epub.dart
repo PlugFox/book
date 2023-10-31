@@ -1,5 +1,7 @@
 // ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
 
+import 'dart:collection';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart' as zip;
@@ -79,9 +81,35 @@ final class Epub extends Book {
   }
 
   @override
-  String getPage(BookMetadata metadata, int page) {
-    // TODO: implement getPage
-    throw UnimplementedError();
+  ({BookPage page, String content}) getPage(
+      BookMetadata metadata, int playorder) {
+    if (metadata is! EpubMetadata)
+      throw ArgumentError('metadata is not Epub Metadata');
+    final queue = Queue<EpubPage>.of(metadata.navigation.tableOfContents);
+    EpubPage? page;
+    while (queue.isNotEmpty) {
+      final v = queue.removeFirst();
+      if (v.playorder == playorder) {
+        page = v;
+        break;
+      }
+      if (v.children case List<EpubPage> children) {
+        queue.addAll(children);
+      }
+    }
+    if (page == null) throw ArgumentError('Page not found: $playorder');
+    final src = page.src;
+    final file = _archive.files.firstWhereOrNull((file) => file.name == src);
+    if (file == null) throw ArgumentError('File not found: $src');
+    final content = file.content;
+    switch (content) {
+      case List<int> bytes:
+        return (page: page, content: utf8.decode(bytes));
+      case String text:
+        return (page: page, content: text);
+      default:
+        throw ArgumentError('Unsupported content type: ${content.runtimeType}');
+    }
   }
 
   @override
@@ -385,15 +413,14 @@ final class EpubNavigation extends BookNavigation {
   @override
   int get pages => _$pages[this] ??= () {
         var count = 0;
-        visitChildElements((point) {
-          if (point.hasChildren) return;
+        visitChildElements((page) {
           count++;
         });
         return count;
       }();
 
   @override
-  void visitChildElements(covariant void Function(EpubPage point) visitor) {
+  void visitChildElements(covariant void Function(EpubPage page) visitor) {
     for (final point in tableOfContents) {
       visitor(point);
       point.visitChildElements(visitor);
@@ -482,7 +509,7 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
   final Map<String, Object?> meta;
 
   @override
-  void visitChildElements(covariant void Function(EpubPage point) visitor) {
+  void visitChildElements(covariant void Function(EpubPage page) visitor) {
     if (!hasChildren) return;
     for (final child in children!) {
       visitor(child);

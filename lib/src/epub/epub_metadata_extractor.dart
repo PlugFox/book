@@ -223,15 +223,19 @@ final class EpubMetadataExtractor {
             (item) => item.id == metadata.epubSpine.tableOfContents)
         ?.href;
     if (navFileNcx == null) return false;
-    navFileNcx = '${metadata.epubDirectory}/$navFileNcx';
+    /* navFileNcx = '${metadata.epubDirectory}/$navFileNcx' */
     final basePath = p.dirname(navFileNcx);
-    final navFileContent = archive.files
+    final navFileContent = switch (archive.files
         .firstWhereOrNull(
           (file) => file.name == navFileNcx,
         )
-        ?.content;
-    if (navFileContent is! List<int>) return false;
-    final navDocument = xml.XmlDocument.parse(utf8.decode(navFileContent));
+        ?.content) {
+      String content => content,
+      List<int> content => utf8.decode(content),
+      _ => null,
+    };
+    if (navFileContent == null || navFileContent.isEmpty) return false;
+    final navDocument = xml.XmlDocument.parse(navFileContent);
     final navNode =
         navDocument.findElements('ncx', namespace: _kNcxNamespace).firstOrNull;
     if (navNode == null) return false;
@@ -360,14 +364,18 @@ final class EpubMetadataExtractor {
         .firstWhereOrNull((item) => item.meta?['properties'] == 'nav')
         ?.href;
     if (navFilePath == null) return false;
-    navFilePath = '${metadata.epubDirectory}/$navFilePath';
-    final navFileContent = archive.files
+    /* navFilePath = '${metadata.epubDirectory}/$navFilePath'; */
+    final navFileContent = switch (archive.files
         .firstWhereOrNull(
           (file) => file.name == navFilePath,
         )
-        ?.content;
-    if (navFileContent is! List<int>) return false;
-    final navDocument = xml.XmlDocument.parse(utf8.decode(navFileContent));
+        ?.content) {
+      String content => content,
+      List<int> content => utf8.decode(content),
+      _ => null,
+    };
+    if (navFileContent == null || navFileContent.isEmpty) return false;
+    final navDocument = xml.XmlDocument.parse(navFileContent);
     final basePath = p.dirname(navFilePath);
 
     // Нормализация путей к файлам внутри архива
@@ -489,8 +497,8 @@ final class EpubMetadataExtractor {
       }
     }
     src.sort((a, b) => a.playorder.compareTo(b.playorder));
-    for (var i = 1; i <= allPages.length; i++) {
-      allPages[i].playorder = i;
+    for (var i = 0; i < allPages.length; i++) {
+      allPages[i].playorder = i + 1;
     }
 
     EpubPage convert(_$EpubPage node) => EpubPage(

@@ -28,7 +28,8 @@ abstract base class Book {
   /// Get book page by the given [playorder] number.
   /// Page is a number from 1 to [BookNavigation.pages].
   /// Also page is a playorder value.
-  String getPage(BookMetadata metadata, int playorder);
+  ({BookPage page, String content}) getPage(
+      BookMetadata metadata, int playorder);
 }
 
 /// Book metadata.
@@ -158,7 +159,7 @@ abstract base class BookNavigation {
   abstract final List<BookPage> tableOfContents;
 
   /// Visits all child elements.
-  void visitChildElements(void Function(BookPage point) visitor);
+  void visitChildElements(void Function(BookPage page) visitor);
 
   /// Book navigation points list (reading order).
   List<BookPage> getReadingOrder();
@@ -187,7 +188,7 @@ abstract base class BookPage {
   bool get hasChildren;
 
   /// Visits all child elements.
-  void visitChildElements(void Function(BookPage point) visitor);
+  void visitChildElements(void Function(BookPage page) visitor);
 
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
