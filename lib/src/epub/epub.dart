@@ -38,7 +38,7 @@ final class Epub extends Book {
       );
 
   @override
-  BookImage? getCoverImage(final BookMetadata metadata) {
+  BookResource? getCoverImage(final BookMetadata metadata) {
     assert(metadata is EpubMetadata, 'metadata is not EpubMetadata');
     if (metadata is! EpubMetadata) return null;
     EpubManifest$Item? coverItem;
@@ -68,7 +68,7 @@ final class Epub extends Book {
     final content = file.content;
     if (content is! List<int>) return null;
     final bytes = Uint8List.fromList(content);
-    return EpubImage(
+    return EpubResource(
       path: href,
       name: p.basename(href),
       extension: p.extension(href),
@@ -76,6 +76,12 @@ final class Epub extends Book {
       size: content.length,
       bytes: bytes,
     );
+  }
+
+  @override
+  String getPage(BookMetadata metadata, int page) {
+    // TODO: implement getPage
+    throw UnimplementedError();
   }
 
   @override
@@ -344,21 +350,21 @@ final class EpubSpine$Item {
 final class EpubNavigation extends BookNavigation {
   /// {@nodoc}
   EpubNavigation({
-    List<EpubNavigation$Point>? tableOfContents,
+    List<EpubPage>? tableOfContents,
     Map<String, Object?>? meta,
-  })  : tableOfContents = tableOfContents ?? <EpubNavigation$Point>[],
+  })  : tableOfContents = tableOfContents ?? <EpubPage>[],
         meta = meta ?? <String, Object?>{};
 
   /// {@nodoc}
   factory EpubNavigation.fromJson(Map<String, Object?> json) => EpubNavigation(
         tableOfContents: switch (json['toc']) {
-          List<Object?> points => UnmodifiableListView<EpubNavigation$Point>(
-              <EpubNavigation$Point>[
+          List<Object?> points => UnmodifiableListView<EpubPage>(
+              <EpubPage>[
                 for (final point in points.whereType<Map<String, Object?>>())
-                  EpubNavigation$Point.fromJson(point)
+                  EpubPage.fromJson(point)
               ],
             ),
-          _ => const <EpubNavigation$Point>[],
+          _ => const <EpubPage>[],
         },
         meta: switch (json['meta']) {
           Map<String, Object?> meta =>
@@ -368,15 +374,26 @@ final class EpubNavigation extends BookNavigation {
       );
 
   @override
-  final List<EpubNavigation$Point> tableOfContents;
+  final List<EpubPage> tableOfContents;
 
   /// Additional metadata for this value.
   /// {@nodoc}
   final Map<String, Object?> meta;
 
+  static final _$pages = Expando<int>('book#epub/nav/pages');
+
   @override
-  void visitChildElements(
-      covariant void Function(EpubNavigation$Point point) visitor) {
+  int get pages => _$pages[this] ??= () {
+        var count = 0;
+        visitChildElements((point) {
+          if (point.hasChildren) return;
+          count++;
+        });
+        return count;
+      }();
+
+  @override
+  void visitChildElements(covariant void Function(EpubPage point) visitor) {
     for (final point in tableOfContents) {
       visitor(point);
       point.visitChildElements(visitor);
@@ -384,8 +401,8 @@ final class EpubNavigation extends BookNavigation {
   }
 
   @override
-  List<BookNavigation$Point> getReadingOrder() {
-    final readingOrder = <BookNavigation$Point>[];
+  List<BookPage> getReadingOrder() {
+    final readingOrder = <BookPage>[];
     visitChildElements(readingOrder.add);
     return readingOrder..sort();
   }
@@ -401,10 +418,9 @@ final class EpubNavigation extends BookNavigation {
 /// {@nodoc}
 @internal
 @immutable
-final class EpubNavigation$Point extends BookNavigation$Point
-    implements Comparable<EpubNavigation$Point> {
+final class EpubPage extends BookPage implements Comparable<EpubPage> {
   /// {@nodoc}
-  EpubNavigation$Point({
+  EpubPage({
     required this.id,
     required this.src,
     required this.label,
@@ -415,21 +431,20 @@ final class EpubNavigation$Point extends BookNavigation$Point
   }) : meta = meta ?? <String, Object?>{};
 
   /// {@nodoc}
-  factory EpubNavigation$Point.fromJson(Map<String, Object?> json) =>
-      EpubNavigation$Point(
+  factory EpubPage.fromJson(Map<String, Object?> json) => EpubPage(
         id: json['id']?.toString(),
         label: json['label']?.toString() ?? '',
-        playorder: switch (json['playorder']) {
-          int playorder => playorder,
-          String playorder => int.tryParse(playorder) ?? -1,
+        playorder: switch (json['number']) {
+          int number => number,
+          String number => int.tryParse(number) ?? -1,
           _ => -1,
         },
         src: json['src']?.toString() ?? '',
         fragment: json['fragment']?.toString(),
         children: switch (json['children']) {
-          List<Object?> children => <EpubNavigation$Point>[
+          List<Object?> children => <EpubPage>[
               for (final child in children.whereType<Map<String, Object?>>())
-                EpubNavigation$Point.fromJson(child)
+                EpubPage.fromJson(child)
             ],
           _ => null,
         },
@@ -457,7 +472,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
   final int playorder;
 
   /// {@nodoc}
-  final List<EpubNavigation$Point>? children;
+  final List<EpubPage>? children;
 
   @override
   bool get hasChildren => children?.isNotEmpty ?? false;
@@ -467,8 +482,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
   final Map<String, Object?> meta;
 
   @override
-  void visitChildElements(
-      covariant void Function(EpubNavigation$Point point) visitor) {
+  void visitChildElements(covariant void Function(EpubPage point) visitor) {
     if (!hasChildren) return;
     for (final child in children!) {
       visitor(child);
@@ -477,7 +491,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
   }
 
   @override
-  int compareTo(covariant EpubNavigation$Point other) =>
+  int compareTo(covariant EpubPage other) =>
       playorder.compareTo(other.playorder);
 
   /// {@nodoc}
@@ -486,7 +500,7 @@ final class EpubNavigation$Point extends BookNavigation$Point
         '@type': 'epub-nav-point',
         if (id != null) 'id': id,
         'label': label,
-        'playorder': playorder,
+        'number': playorder,
         'src': src,
         if (fragment != null) 'fragment': fragment,
         if (children != null) 'children': children,
@@ -500,9 +514,9 @@ final class EpubNavigation$Point extends BookNavigation$Point
 /// {@nodoc}
 @internal
 @immutable
-final class EpubImage extends BookImage {
+final class EpubResource extends BookResource {
   /// {@nodoc}
-  const EpubImage({
+  const EpubResource({
     required this.path,
     required this.name,
     required this.extension,

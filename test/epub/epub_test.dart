@@ -33,7 +33,7 @@ void main() => group('EPUB', () {
               }
             }
 
-            expect(readingOrder, isA<List<BookNavigation$Point>>());
+            expect(readingOrder, isA<List<BookPage>>());
           }
         },
         skip: true,
@@ -47,7 +47,7 @@ void main() => group('EPUB', () {
           final metadata = book.getMetadata();
           expect(metadata, isA<BookMetadata>());
           final image = book.getCoverImage(metadata);
-          expect(image, isA<BookImage>());
+          expect(image, isA<BookResource>());
         },
       );
 
@@ -59,7 +59,7 @@ void main() => group('EPUB', () {
           final metadata = book.getMetadata();
           expect(metadata, isA<BookMetadata>());
           final image = book.getCoverImage(metadata);
-          expect(image, isA<BookImage>());
+          expect(image, isA<BookResource>());
         },
       );
     });

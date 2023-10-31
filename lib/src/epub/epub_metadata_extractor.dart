@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:archive/archive.dart' as zip;
@@ -243,7 +244,7 @@ final class EpubMetadataExtractor {
 
     // Рекурсивная функция для обхода navPoints
     final $playorders = <int>{};
-    Iterable<EpubNavigation$Point> parseNavPoints(
+    Iterable<_$EpubPage> parseNavPoints(
         Iterable<xml.XmlElement> navPoints) sync* {
       for (final navPoint in navPoints) {
         final label = navPoint
@@ -286,7 +287,7 @@ final class EpubMetadataExtractor {
           src = normalizePath(path.substring(0, fragmentIdx));
           fragment = path.substring(fragmentIdx + 1);
         }
-        yield EpubNavigation$Point(
+        yield _$EpubPage(
           id: id,
           src: src,
           fragment: fragment,
@@ -305,8 +306,7 @@ final class EpubMetadataExtractor {
             (elem) => elem.findElements('navPoint', namespace: _kNcxNamespace))
         .whereType<xml.XmlElement>();
 
-    final toc = UnmodifiableListView<EpubNavigation$Point>(
-        parseNavPoints(navPoints).toList(growable: false));
+    final toc = _normalizePagesTree(parseNavPoints(navPoints));
 
     final metaEntities = navNode
         .findElements('head')
@@ -385,7 +385,7 @@ final class EpubMetadataExtractor {
 
     var $counter = 0; // Счетчик для playorder
     // Рекурсивная функция для обхода navPoints
-    Iterable<EpubNavigation$Point> parseNavPoints(
+    Iterable<_$EpubPage> parseNavPoints(
         Iterable<xml.XmlElement> navPoints) sync* {
       for (final navPoint in navPoints) {
         $counter++;
@@ -424,7 +424,7 @@ final class EpubMetadataExtractor {
           src = normalizePath(path.substring(0, fragmentIdx));
           fragment = path.substring(fragmentIdx + 1);
         }
-        yield EpubNavigation$Point(
+        yield _$EpubPage(
           id: id,
           src: src,
           fragment: fragment,
@@ -442,8 +442,7 @@ final class EpubMetadataExtractor {
         .expand((elem) => elem.findElements('li', namespace: '*'))
         .whereType<xml.XmlElement>();
 
-    final toc = UnmodifiableListView<EpubNavigation$Point>(
-        parseNavPoints(navPoints).toList(growable: false));
+    final toc = _normalizePagesTree(parseNavPoints(navPoints));
 
     final navigation = EpubNavigation(
       tableOfContents: toc,
@@ -471,4 +470,74 @@ final class EpubMetadataExtractor {
   static bool _addNavigationFallback(
           EpubMetadata metadata, zip.Archive archive) =>
       false;
+
+  static List<EpubPage> _normalizePagesTree(Iterable<_$EpubPage> tree) {
+    final src = tree.toList(growable: false);
+    final ids = <String>{};
+    final allPages = <_$EpubPage>[];
+    final queue = Queue<_$EpubPage>.of(src);
+    while (queue.isNotEmpty) {
+      final page = queue.removeFirst();
+      if (page.id == null || ids.contains(page.id)) {
+        page.id = null;
+      } else {
+        ids.add(page.id ?? '');
+      }
+      allPages.add(page);
+      if (page.children case List<_$EpubPage> children) {
+        queue.addAll(children);
+      }
+    }
+    src.sort((a, b) => a.playorder.compareTo(b.playorder));
+    for (var i = 1; i <= allPages.length; i++) {
+      allPages[i].playorder = i;
+    }
+
+    EpubPage convert(_$EpubPage node) => EpubPage(
+          id: node.id,
+          src: node.src,
+          fragment: node.fragment,
+          label: node.label,
+          playorder: node.playorder,
+          children: node.children?.map(convert).toList(growable: false),
+          meta: node.meta,
+        );
+
+    return src.map<EpubPage>(convert).toList(growable: false);
+  }
+}
+
+/// {@nodoc}
+class _$EpubPage {
+  /// {@nodoc}
+  _$EpubPage({
+    required this.src,
+    required this.label,
+    required this.playorder,
+    this.id,
+    this.fragment,
+    this.children,
+    this.meta,
+  });
+
+  /// {@nodoc}
+  String? id;
+
+  /// {@nodoc}
+  String src;
+
+  /// {@nodoc}
+  String? fragment;
+
+  /// {@nodoc}
+  String label;
+
+  /// {@nodoc}
+  int playorder;
+
+  /// {@nodoc}
+  List<_$EpubPage>? children;
+
+  /// {@nodoc}
+  Map<String, Object?>? meta;
 }

@@ -23,7 +23,12 @@ abstract base class Book {
   BookMetadata getMetadata();
 
   /// Get book cover image.
-  BookImage? getCoverImage(BookMetadata metadata);
+  BookResource? getCoverImage(BookMetadata metadata);
+
+  /// Get book page by the given [playorder] number.
+  /// Page is a number from 1 to [BookNavigation.pages].
+  /// Also page is a playorder value.
+  String getPage(BookMetadata metadata, int playorder);
 }
 
 /// Book metadata.
@@ -150,13 +155,16 @@ abstract base class BookNavigation {
   const BookNavigation();
 
   /// Book navigation points tree (table of contents).
-  abstract final List<BookNavigation$Point> tableOfContents;
+  abstract final List<BookPage> tableOfContents;
 
   /// Visits all child elements.
-  void visitChildElements(void Function(BookNavigation$Point point) visitor);
+  void visitChildElements(void Function(BookPage point) visitor);
 
   /// Book navigation points list (reading order).
-  List<BookNavigation$Point> getReadingOrder();
+  List<BookPage> getReadingOrder();
+
+  /// Get book pages count.
+  int get pages;
 
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
@@ -164,21 +172,22 @@ abstract base class BookNavigation {
 
 /// Book navigation point.
 @immutable
-abstract base class BookNavigation$Point {
+abstract base class BookPage {
   /// Book navigation point.
-  const BookNavigation$Point();
+  const BookPage();
 
   /// Label for the book navigation point.
   abstract final String label;
 
   /// Play order for the book navigation point.
+  /// Page is a number from 1 to [BookNavigation.pages].
   abstract final int playorder;
 
   /// Has child elements.
   bool get hasChildren;
 
   /// Visits all child elements.
-  void visitChildElements(void Function(BookNavigation$Point point) visitor);
+  void visitChildElements(void Function(BookPage point) visitor);
 
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
@@ -186,9 +195,9 @@ abstract base class BookNavigation$Point {
 
 /// Book image.
 @immutable
-abstract class BookImage {
+abstract class BookResource {
   /// Book image.
-  const BookImage();
+  const BookResource();
 
   /// Book image path.
   /// e.g. "OEBPS/Images/cover.jpg", "OEBPS/Images/CoverDesign.jpg", etc.
