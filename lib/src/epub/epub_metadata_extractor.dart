@@ -311,7 +311,7 @@ final class EpubMetadataExtractor {
             (elem) => elem.findElements('navPoint', namespace: _kNcxNamespace))
         .whereType<xml.XmlElement>();
 
-    final toc = _normalizePagesTree(parseNavPoints(navPoints));
+    final toc = _normalizePagesTree(archive, parseNavPoints(navPoints));
 
     final metaEntities = navNode
         .findElements('head')
@@ -452,7 +452,7 @@ final class EpubMetadataExtractor {
         .expand((elem) => elem.findElements('li', namespace: '*'))
         .whereType<xml.XmlElement>();
 
-    final toc = _normalizePagesTree(parseNavPoints(navPoints));
+    final toc = _normalizePagesTree(archive, parseNavPoints(navPoints));
 
     final navigation = EpubNavigation(
       tableOfContents: toc,
@@ -481,7 +481,8 @@ final class EpubMetadataExtractor {
           EpubMetadata metadata, zip.Archive archive) =>
       false;
 
-  static List<EpubPage> _normalizePagesTree(Iterable<_$EpubPage> tree) {
+  static List<EpubPage> _normalizePagesTree(
+      zip.Archive archive, Iterable<_$EpubPage> tree) {
     final src = tree.toList(growable: false);
 
     final allPages = <_$EpubPage>[];
@@ -521,30 +522,32 @@ final class EpubMetadataExtractor {
     }
 
     // TODO(plugfox): cache for src pages.
+
     // Add characters length to all pages.
-    /* final file = archive.files.firstWhereOrNull((file) => file.name == src);
-    if (file == null) continue;
-    int length;
-    {
+    final $length = <String, int>{};
+    int getPageLength(String path) {
+      if ($length[path] case int exist) return exist;
+      final file = archive.files.firstWhereOrNull((file) => file.name == path);
+      if (file == null) return $length[path] = 0;
       final content = switch (file.content) {
         String content => content,
         List<int> content => utf8.decode(content),
         _ => null,
       };
-      if (content == null || content.isEmpty) continue;
+      if (content == null || content.isEmpty) return $length[path] = 0;
       final document = xml.XmlDocument.parse(content);
-      length = document.findAllElements('body').fold<int>(
+      return $length[path] = document.findAllElements('body').fold<int>(
             0,
             (prev, node) => prev + node.innerText.length,
           );
-    } */
+    }
 
     EpubPage convert(_$EpubPage node) => EpubPage(
           id: node.id,
           src: node.src,
           label: node.label,
           playorder: node.playorder,
-          length: node.length,
+          length: getPageLength(node.src),
           fragment: node.fragment,
           children:
               node.children?.map<EpubPage>(convert).toList(growable: false),
@@ -588,7 +591,4 @@ class _$EpubPage {
 
   /// {@nodoc}
   Map<String, Object?>? meta;
-
-  /// {@nodoc}
-  int length = 0;
 }

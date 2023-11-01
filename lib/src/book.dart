@@ -93,6 +93,9 @@ abstract base class BookMetadata {
   /// Book navigation.
   abstract final BookNavigation navigation;
 
+  // TODO(plugfox): Total page length.
+  //abstract final int length;
+
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
 }
