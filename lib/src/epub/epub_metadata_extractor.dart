@@ -521,22 +521,37 @@ final class EpubMetadataExtractor {
 
   static List<EpubPage> _normalizePagesTree(Iterable<_$EpubPage> tree) {
     final src = tree.toList(growable: false);
-    final ids = <String>{};
+
     final allPages = <_$EpubPage>[];
-    final queue = Queue<_$EpubPage>.of(src);
-    while (queue.isNotEmpty) {
-      final page = queue.removeFirst();
-      if (page.id == null || ids.contains(page.id)) {
-        page.id = null;
-      } else {
-        ids.add(page.id ?? '');
-      }
-      allPages.add(page);
-      if (page.children case List<_$EpubPage> children) {
-        queue.addAll(children);
+
+    {
+      final ids = <String>{};
+      final queue = Queue<_$EpubPage>.of(src);
+      while (queue.isNotEmpty) {
+        final page = queue.removeFirst();
+
+        // Add id to the page if it is not unique.
+        if (page.id == null || ids.contains(page.id)) {
+          page.id = null;
+        } else {
+          ids.add(page.id ?? '');
+        }
+
+        if (page.children case List<_$EpubPage> children) {
+          queue.addAll(children);
+        }
       }
     }
+
+    // Sort pages by playorder.
     src.sort((a, b) => a.playorder.compareTo(b.playorder));
+
+    // Combine pages with the same src.
+    // Src : <BookFragment>[]
+    final fragments = <String, List<BookFragment>>{};
+    // TODO(plugfox): Combine pages with the same src.
+
+    // Set playorder for all unique src pages.
     for (var i = 0; i < allPages.length; i++) {
       allPages[i].playorder = i + 1;
     }
@@ -544,10 +559,10 @@ final class EpubMetadataExtractor {
     EpubPage convert(_$EpubPage node) => EpubPage(
           id: node.id,
           src: node.src,
-          fragment: node.fragment,
           label: node.label,
           playorder: node.playorder,
           length: node.length,
+          fragments: fragments[node.src],
           children:
               node.children?.map<EpubPage>(convert).toList(growable: false),
           meta: node.meta,

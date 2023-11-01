@@ -437,9 +437,16 @@ final class EpubNavigation extends BookNavigation {
   @override
   Map<String, Object?> toJson() => <String, Object?>{
         '@type': 'epub-nav',
-        'toc': tableOfContents,
+        'toc': [
+          if (tableOfContents case List<EpubPage> children)
+            for (final child in children) child.toJson(),
+        ],
         if (meta.isNotEmpty) 'meta': meta,
       };
+
+  // TODO(plugfox): Tree structure
+  /* @override
+  String toString() => tableOfContents.toString(); */
 }
 
 /// {@nodoc}
@@ -453,7 +460,7 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
     required this.label,
     required this.playorder,
     required this.length,
-    this.fragment,
+    this.fragments,
     this.children,
     Map<String, Object?>? meta,
   }) : meta = meta ?? <String, Object?>{};
@@ -473,7 +480,13 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
           String length => int.tryParse(length) ?? 0,
           _ => 0,
         },
-        fragment: json['fragment']?.toString(),
+        fragments: switch (json['fragments']) {
+          List<Object?> children => <EpubFragment>[
+              for (final child in children.whereType<Map<String, Object?>>())
+                EpubFragment.fromJson(child)
+            ],
+          _ => null,
+        },
         children: switch (json['children']) {
           List<Object?> children => <EpubPage>[
               for (final child in children.whereType<Map<String, Object?>>())
@@ -491,10 +504,8 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
   final String? id;
 
   /// {@nodoc}
+  @override
   final String src;
-
-  /// {@nodoc}
-  final String? fragment;
 
   /// {@nodoc}
   @override
@@ -509,6 +520,14 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
   final int length;
 
   /// {@nodoc}
+  @override
+  final List<BookFragment>? fragments;
+
+  @override
+  bool get hasFragments => fragments?.isNotEmpty ?? false;
+
+  /// {@nodoc}
+  @override
   final List<EpubPage>? children;
 
   @override
@@ -534,15 +553,65 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
   /// {@nodoc}
   @override
   Map<String, Object?> toJson() => <String, Object?>{
-        '@type': 'epub-nav-point',
+        '@type': 'epub-page',
         if (id != null) 'id': id,
         'label': label,
         'number': playorder,
         'src': src,
         'length': length,
-        if (fragment != null) 'fragment': fragment,
-        if (children != null) 'children': children,
+        if (fragments != null)
+          'fragments': [
+            if (fragments case List<EpubFragment> fragments)
+              for (final fragment in fragments) fragment.toJson(),
+          ],
+        if (children != null)
+          'children': [
+            if (children case List<EpubPage> children)
+              for (final child in children) child.toJson(),
+          ],
         if (meta.isNotEmpty) 'meta': meta,
+      };
+
+  @override
+  String toString() => label;
+}
+
+/// {@nodoc}
+@internal
+@immutable
+final class EpubFragment extends BookFragment {
+  /// {@nodoc}
+  const EpubFragment({
+    required this.id,
+    required this.label,
+    required this.value,
+  });
+
+  /// {@nodoc}
+  factory EpubFragment.fromJson(Map<String, Object?> json) => EpubFragment(
+        id: json['id']?.toString(),
+        label: json['label']?.toString() ?? '',
+        value: json['value']?.toString() ?? '',
+      );
+
+  /// {@nodoc}
+  @override
+  final String? id;
+
+  /// {@nodoc}
+  @override
+  final String label;
+
+  /// {@nodoc}
+  @override
+  final String value;
+
+  /// {@nodoc}
+  Map<String, Object?> toJson() => <String, Object?>{
+        '@type': 'epub-fragment',
+        if (id != null) 'id': id,
+        'label': label,
+        'value': value,
       };
 
   @override

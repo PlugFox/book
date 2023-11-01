@@ -177,6 +177,10 @@ abstract base class BookPage {
   /// Book navigation point.
   const BookPage();
 
+  /// Book navigation source.
+  /// e.g. "OEBPS/Text/cover.xhtml" etc.
+  abstract final String src;
+
   /// Label for the book navigation point.
   abstract final String label;
 
@@ -187,6 +191,15 @@ abstract base class BookPage {
   /// Content characters length.
   abstract final int length;
 
+  /// Page fragments.
+  abstract final List<BookFragment>? fragments;
+
+  /// Has page fragments.
+  bool get hasFragments;
+
+  /// Page children.
+  abstract final List<BookPage>? children;
+
   /// Has child elements.
   bool get hasChildren;
 
@@ -195,6 +208,24 @@ abstract base class BookPage {
 
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
+}
+
+/// Book fragment.
+@immutable
+abstract base class BookFragment {
+  /// Book fragment.
+  const BookFragment();
+
+  /// Book fragment id.
+  abstract final String? id;
+
+  /// Label for the book fragment.
+  abstract final String label;
+
+  /// Book fragment value.
+  /// e.g. "OEBPS/Text/cover.xhtml#cover" means that the fragment is located in
+  /// the "OEBPS/Text/cover.xhtml" file and has the "cover" id.
+  abstract final String value;
 }
 
 /// Book image.
