@@ -292,24 +292,6 @@ final class EpubMetadataExtractor {
           fragment = path.substring(fragmentIdx + 1);
         }
 
-        /// Get the characters length of the file.
-        final file = archive.files.firstWhereOrNull((file) => file.name == src);
-        if (file == null) continue;
-        int length;
-        {
-          final content = switch (file.content) {
-            String content => content,
-            List<int> content => utf8.decode(content),
-            _ => null,
-          };
-          if (content == null || content.isEmpty) continue;
-          final document = xml.XmlDocument.parse(content);
-          length = document.findAllElements('body').fold<int>(
-                0,
-                (prev, node) => prev + node.innerText.length,
-              );
-        }
-
         yield _$EpubPage(
           id: id,
           src: src,
@@ -318,7 +300,6 @@ final class EpubMetadataExtractor {
           playorder: playorder,
           children: children,
           meta: meta.isEmpty ? null : meta,
-          length: length,
         );
       }
     }
@@ -453,24 +434,6 @@ final class EpubMetadataExtractor {
           fragment = path.substring(fragmentIdx + 1);
         }
 
-        /// Get the characters length of the file.
-        final file = archive.files.firstWhereOrNull((file) => file.name == src);
-        if (file == null) continue;
-        int length;
-        {
-          final content = switch (file.content) {
-            String content => content,
-            List<int> content => utf8.decode(content),
-            _ => null,
-          };
-          if (content == null || content.isEmpty) continue;
-          final document = xml.XmlDocument.parse(content);
-          length = document.findAllElements('body').fold<int>(
-                0,
-                (prev, node) => prev + node.innerText.length,
-              );
-        }
-
         yield _$EpubPage(
           id: id,
           src: src,
@@ -479,7 +442,6 @@ final class EpubMetadataExtractor {
           playorder: playorder,
           children: children,
           meta: null,
-          length: length,
         );
       }
     }
@@ -529,14 +491,13 @@ final class EpubMetadataExtractor {
       final queue = Queue<_$EpubPage>.of(src);
       while (queue.isNotEmpty) {
         final page = queue.removeFirst();
-
         // Add id to the page if it is not unique.
         if (page.id == null || ids.contains(page.id)) {
           page.id = null;
         } else {
           ids.add(page.id ?? '');
         }
-
+        allPages.add(page);
         if (page.children case List<_$EpubPage> children) {
           queue.addAll(children);
         }
@@ -549,12 +510,32 @@ final class EpubMetadataExtractor {
     // Combine pages with the same src.
     // Src : <BookFragment>[]
     final fragments = <String, List<BookFragment>>{};
-    // TODO(plugfox): Combine pages with the same src.
+    {
+      // TODO(plugfox): Combine pages with the same src.
+    }
 
     // Set playorder for all unique src pages.
     for (var i = 0; i < allPages.length; i++) {
       allPages[i].playorder = i + 1;
     }
+
+    // Add characters length to all pages.
+    /* final file = archive.files.firstWhereOrNull((file) => file.name == src);
+    if (file == null) continue;
+    int length;
+    {
+      final content = switch (file.content) {
+        String content => content,
+        List<int> content => utf8.decode(content),
+        _ => null,
+      };
+      if (content == null || content.isEmpty) continue;
+      final document = xml.XmlDocument.parse(content);
+      length = document.findAllElements('body').fold<int>(
+            0,
+            (prev, node) => prev + node.innerText.length,
+          );
+    } */
 
     EpubPage convert(_$EpubPage node) => EpubPage(
           id: node.id,
@@ -583,7 +564,6 @@ class _$EpubPage {
     this.fragment,
     this.children,
     this.meta,
-    this.length = 0,
   });
 
   /// {@nodoc}
@@ -608,5 +588,5 @@ class _$EpubPage {
   Map<String, Object?>? meta;
 
   /// {@nodoc}
-  int length;
+  int length = 0;
 }
