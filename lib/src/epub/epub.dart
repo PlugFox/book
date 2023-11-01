@@ -1,6 +1,5 @@
 // ignore_for_file: avoid_equals_and_hash_code_on_mutable_classes
 
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -81,32 +80,19 @@ final class Epub extends Book {
   }
 
   @override
-  ({BookPage page, String content}) getPage(
-      BookMetadata metadata, int playorder) {
+  String getPage(BookMetadata metadata, BookPage page) {
     if (metadata is! EpubMetadata)
       throw ArgumentError('metadata is not Epub Metadata');
-    final queue = Queue<EpubPage>.of(metadata.navigation.tableOfContents);
-    EpubPage? page;
-    while (queue.isNotEmpty) {
-      final v = queue.removeFirst();
-      if (v.playorder == playorder) {
-        page = v;
-        break;
-      }
-      if (v.children case List<EpubPage> children) {
-        queue.addAll(children);
-      }
-    }
-    if (page == null) throw ArgumentError('Page not found: $playorder');
+    if (page is! EpubPage) throw ArgumentError('page is not Epub Page');
     final src = page.src;
     final file = _archive.files.firstWhereOrNull((file) => file.name == src);
     if (file == null) throw ArgumentError('File not found: $src');
     final content = file.content;
     switch (content) {
       case List<int> bytes:
-        return (page: page, content: utf8.decode(bytes));
+        return utf8.decode(bytes);
       case String text:
-        return (page: page, content: text);
+        return text;
       default:
         throw ArgumentError('Unsupported content type: ${content.runtimeType}');
     }
@@ -428,10 +414,28 @@ final class EpubNavigation extends BookNavigation {
   }
 
   @override
-  List<BookPage> getReadingOrder() {
+  List<({BookPage page, List<String> fragments})> getReadingOrder() {
+    // Get all pages from the table of contents in the correct order
     final readingOrder = <BookPage>[];
     visitChildElements(readingOrder.add);
-    return readingOrder..sort();
+    readingOrder.sort((a, b) => a.playorder.compareTo(b.playorder));
+
+    // Remove duplicates (pages with the same src)
+    final fragments = <String, List<String>>{};
+    final output = <BookPage>[];
+    for (final page in readingOrder) {
+      if (!fragments.containsKey(page.src)) output.add(page);
+      if (page.fragment case String fragment) {
+        (fragments[page.src] ??= <String>[]).add(fragment);
+      }
+    }
+    return <({BookPage page, List<String> fragments})>[
+      for (final page in output)
+        (
+          page: page,
+          fragments: fragments[page.src] ?? <String>[],
+        )
+    ];
   }
 
   @override
@@ -460,7 +464,7 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
     required this.label,
     required this.playorder,
     required this.length,
-    this.fragments,
+    this.fragment,
     this.children,
     Map<String, Object?>? meta,
   }) : meta = meta ?? <String, Object?>{};
@@ -480,13 +484,7 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
           String length => int.tryParse(length) ?? 0,
           _ => 0,
         },
-        fragments: switch (json['fragments']) {
-          List<Object?> children => <EpubFragment>[
-              for (final child in children.whereType<Map<String, Object?>>())
-                EpubFragment.fromJson(child)
-            ],
-          _ => null,
-        },
+        fragment: json['fragment']?.toString(),
         children: switch (json['children']) {
           List<Object?> children => <EpubPage>[
               for (final child in children.whereType<Map<String, Object?>>())
@@ -521,10 +519,10 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
 
   /// {@nodoc}
   @override
-  final List<BookFragment>? fragments;
+  final String? fragment;
 
   @override
-  bool get hasFragments => fragments?.isNotEmpty ?? false;
+  bool get hasFragment => fragment != null;
 
   /// {@nodoc}
   @override
@@ -559,59 +557,13 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
         'number': playorder,
         'src': src,
         'length': length,
-        if (fragments != null)
-          'fragments': [
-            if (fragments case List<EpubFragment> fragments)
-              for (final fragment in fragments) fragment.toJson(),
-          ],
+        if (fragment != null) 'fragment': fragment,
         if (children != null)
           'children': [
             if (children case List<EpubPage> children)
               for (final child in children) child.toJson(),
           ],
         if (meta.isNotEmpty) 'meta': meta,
-      };
-
-  @override
-  String toString() => label;
-}
-
-/// {@nodoc}
-@internal
-@immutable
-final class EpubFragment extends BookFragment {
-  /// {@nodoc}
-  const EpubFragment({
-    required this.id,
-    required this.label,
-    required this.value,
-  });
-
-  /// {@nodoc}
-  factory EpubFragment.fromJson(Map<String, Object?> json) => EpubFragment(
-        id: json['id']?.toString(),
-        label: json['label']?.toString() ?? '',
-        value: json['value']?.toString() ?? '',
-      );
-
-  /// {@nodoc}
-  @override
-  final String? id;
-
-  /// {@nodoc}
-  @override
-  final String label;
-
-  /// {@nodoc}
-  @override
-  final String value;
-
-  /// {@nodoc}
-  Map<String, Object?> toJson() => <String, Object?>{
-        '@type': 'epub-fragment',
-        if (id != null) 'id': id,
-        'label': label,
-        'value': value,
       };
 
   @override

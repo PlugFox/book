@@ -486,6 +486,10 @@ final class EpubMetadataExtractor {
 
     final allPages = <_$EpubPage>[];
 
+    // Combine pages with the same src.
+    // Src : <BookFragment>[]
+    final fragments = <String, List<String>>{};
+
     {
       final ids = <String>{};
       final queue = Queue<_$EpubPage>.of(src);
@@ -498,6 +502,10 @@ final class EpubMetadataExtractor {
           ids.add(page.id ?? '');
         }
         allPages.add(page);
+        // Add fragments to the src page.
+        if (page.fragment case String fragment) {
+          (fragments[page.src] ??= <String>[]).add(fragment);
+        }
         if (page.children case List<_$EpubPage> children) {
           queue.addAll(children);
         }
@@ -505,20 +513,14 @@ final class EpubMetadataExtractor {
     }
 
     // Sort pages by playorder.
-    src.sort((a, b) => a.playorder.compareTo(b.playorder));
-
-    // Combine pages with the same src.
-    // Src : <BookFragment>[]
-    final fragments = <String, List<BookFragment>>{};
-    {
-      // TODO(plugfox): Combine pages with the same src.
-    }
+    allPages.sort((a, b) => a.playorder.compareTo(b.playorder));
 
     // Set playorder for all unique src pages.
     for (var i = 0; i < allPages.length; i++) {
       allPages[i].playorder = i + 1;
     }
 
+    // TODO(plugfox): cache for src pages.
     // Add characters length to all pages.
     /* final file = archive.files.firstWhereOrNull((file) => file.name == src);
     if (file == null) continue;
@@ -543,7 +545,7 @@ final class EpubMetadataExtractor {
           label: node.label,
           playorder: node.playorder,
           length: node.length,
-          fragments: fragments[node.src],
+          fragment: node.fragment,
           children:
               node.children?.map<EpubPage>(convert).toList(growable: false),
           meta: node.meta,

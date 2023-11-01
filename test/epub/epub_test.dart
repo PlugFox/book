@@ -24,16 +24,14 @@ void main() => group('EPUB', () {
               if (readingOrder.length > 1) {
                 for (var i = 1; i < readingOrder.length; i++) {
                   expect(
-                    readingOrder[i].playorder,
+                    readingOrder[i].page.playorder,
                     greaterThan(
-                      readingOrder[i - 1].playorder,
+                      readingOrder[i - 1].page.playorder,
                     ),
                   );
                 }
               }
             }
-
-            expect(readingOrder, isA<List<BookPage>>());
           }
         },
         skip: true,
@@ -48,11 +46,10 @@ void main() => group('EPUB', () {
           expect(metadata, isA<BookMetadata>());
           final image = book.getCoverImage(metadata);
           expect(image, isA<BookResource>());
-          final pages = metadata.navigation.pages;
-          for (var i = 1; i <= pages; i++) {
-            final (page: BookPage page, content: String content) =
-                book.getPage(metadata, i);
-            expect(page, isA<BookPage>());
+          final order = metadata.navigation.getReadingOrder();
+          for (final e in order) {
+            final content = book.getPage(metadata, e.page);
+            expect(e.page, isA<BookPage>());
             expect(content,
                 isA<String>().having((s) => s, 'is not empty', isNotEmpty));
           }
@@ -68,11 +65,10 @@ void main() => group('EPUB', () {
           expect(metadata, isA<BookMetadata>());
           final image = book.getCoverImage(metadata);
           expect(image, isA<BookResource>());
-          final pages = metadata.navigation.pages;
-          for (var i = 1; i <= pages; i++) {
-            final (page: BookPage page, content: String content) =
-                book.getPage(metadata, i);
-            expect(page, isA<BookPage>());
+          final order = metadata.navigation.getReadingOrder();
+          for (final e in order) {
+            final content = book.getPage(metadata, e.page);
+            expect(e.page, isA<BookPage>());
             expect(content,
                 isA<String>().having((s) => s, 'is not empty', isNotEmpty));
           }

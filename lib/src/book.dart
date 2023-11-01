@@ -25,11 +25,10 @@ abstract base class Book {
   /// Get book cover image.
   BookResource? getCoverImage(BookMetadata metadata);
 
-  /// Get book page by the given [playorder] number.
+  /// Get book page by the given page.
   /// Page is a number from 1 to [BookNavigation.pages].
   /// Also page is a playorder value.
-  ({BookPage page, String content}) getPage(
-      BookMetadata metadata, int playorder);
+  String getPage(BookMetadata metadata, BookPage page);
 }
 
 /// Book metadata.
@@ -161,8 +160,11 @@ abstract base class BookNavigation {
   /// Visits all child elements.
   void visitChildElements(void Function(BookPage page) visitor);
 
-  /// Book navigation points list (reading order).
-  List<BookPage> getReadingOrder();
+  /// Book navigation pages list (reading order).
+  /// Only unique pages of unique files are included.
+  ///
+  /// Return pages and their fragments.
+  List<({BookPage page, List<String> fragments})> getReadingOrder();
 
   /// Get book pages count.
   int get pages;
@@ -191,11 +193,13 @@ abstract base class BookPage {
   /// Content characters length.
   abstract final int length;
 
-  /// Page fragments.
-  abstract final List<BookFragment>? fragments;
+  /// Page fragment value.
+  /// e.g. "OEBPS/Text/cover.xhtml#cover" means that the fragment is located in
+  /// the "OEBPS/Text/cover.xhtml" file and has the "cover" id.
+  abstract final String? fragment;
 
-  /// Has page fragments.
-  bool get hasFragments;
+  /// Has page fragment.
+  bool get hasFragment;
 
   /// Page children.
   abstract final List<BookPage>? children;
@@ -208,24 +212,6 @@ abstract base class BookPage {
 
   /// Converts this object to a JSON object.
   Map<String, Object?> toJson();
-}
-
-/// Book fragment.
-@immutable
-abstract base class BookFragment {
-  /// Book fragment.
-  const BookFragment();
-
-  /// Book fragment id.
-  abstract final String? id;
-
-  /// Label for the book fragment.
-  abstract final String label;
-
-  /// Book fragment value.
-  /// e.g. "OEBPS/Text/cover.xhtml#cover" means that the fragment is located in
-  /// the "OEBPS/Text/cover.xhtml" file and has the "cover" id.
-  abstract final String value;
 }
 
 /// Book image.
