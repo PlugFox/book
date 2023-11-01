@@ -452,6 +452,7 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
     required this.src,
     required this.label,
     required this.playorder,
+    required this.length,
     this.fragment,
     this.children,
     Map<String, Object?>? meta,
@@ -467,6 +468,11 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
           _ => -1,
         },
         src: json['src']?.toString() ?? '',
+        length: switch (json['length']) {
+          int length => length,
+          String length => int.tryParse(length) ?? 0,
+          _ => 0,
+        },
         fragment: json['fragment']?.toString(),
         children: switch (json['children']) {
           List<Object?> children => <EpubPage>[
@@ -499,6 +505,10 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
   final int playorder;
 
   /// {@nodoc}
+  @override
+  final int length;
+
+  /// {@nodoc}
   final List<EpubPage>? children;
 
   @override
@@ -529,6 +539,7 @@ final class EpubPage extends BookPage implements Comparable<EpubPage> {
         'label': label,
         'number': playorder,
         'src': src,
+        'length': length,
         if (fragment != null) 'fragment': fragment,
         if (children != null) 'children': children,
         if (meta.isNotEmpty) 'meta': meta,

@@ -184,6 +184,9 @@ abstract base class BookPage {
   /// Page is a number from 1 to [BookNavigation.pages].
   abstract final int playorder;
 
+  /// Content characters length.
+  abstract final int length;
+
   /// Has child elements.
   bool get hasChildren;
 

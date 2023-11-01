@@ -291,6 +291,25 @@ final class EpubMetadataExtractor {
           src = normalizePath(path.substring(0, fragmentIdx));
           fragment = path.substring(fragmentIdx + 1);
         }
+
+        /// Get the characters length of the file.
+        final file = archive.files.firstWhereOrNull((file) => file.name == src);
+        if (file == null) continue;
+        int length;
+        {
+          final content = switch (file.content) {
+            String content => content,
+            List<int> content => utf8.decode(content),
+            _ => null,
+          };
+          if (content == null || content.isEmpty) continue;
+          final document = xml.XmlDocument.parse(content);
+          length = document.findAllElements('body').fold<int>(
+                0,
+                (prev, node) => prev + node.innerText.length,
+              );
+        }
+
         yield _$EpubPage(
           id: id,
           src: src,
@@ -299,6 +318,7 @@ final class EpubMetadataExtractor {
           playorder: playorder,
           children: children,
           meta: meta.isEmpty ? null : meta,
+          length: length,
         );
       }
     }
@@ -432,6 +452,25 @@ final class EpubMetadataExtractor {
           src = normalizePath(path.substring(0, fragmentIdx));
           fragment = path.substring(fragmentIdx + 1);
         }
+
+        /// Get the characters length of the file.
+        final file = archive.files.firstWhereOrNull((file) => file.name == src);
+        if (file == null) continue;
+        int length;
+        {
+          final content = switch (file.content) {
+            String content => content,
+            List<int> content => utf8.decode(content),
+            _ => null,
+          };
+          if (content == null || content.isEmpty) continue;
+          final document = xml.XmlDocument.parse(content);
+          length = document.findAllElements('body').fold<int>(
+                0,
+                (prev, node) => prev + node.innerText.length,
+              );
+        }
+
         yield _$EpubPage(
           id: id,
           src: src,
@@ -440,6 +479,7 @@ final class EpubMetadataExtractor {
           playorder: playorder,
           children: children,
           meta: null,
+          length: length,
         );
       }
     }
@@ -507,7 +547,9 @@ final class EpubMetadataExtractor {
           fragment: node.fragment,
           label: node.label,
           playorder: node.playorder,
-          children: node.children?.map(convert).toList(growable: false),
+          length: node.length,
+          children:
+              node.children?.map<EpubPage>(convert).toList(growable: false),
           meta: node.meta,
         );
 
@@ -526,6 +568,7 @@ class _$EpubPage {
     this.fragment,
     this.children,
     this.meta,
+    this.length = 0,
   });
 
   /// {@nodoc}
@@ -548,4 +591,7 @@ class _$EpubPage {
 
   /// {@nodoc}
   Map<String, Object?>? meta;
+
+  /// {@nodoc}
+  int length;
 }
